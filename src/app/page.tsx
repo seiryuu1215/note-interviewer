@@ -26,6 +26,7 @@ export default function Home() {
   const [profileBio, setProfileBio] = useState("");
   const router = useRouter();
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only localStorage hydration
   useEffect(() => {
     setProfile(getProfile());
     setSessions(getSessions());
