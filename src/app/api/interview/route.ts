@@ -18,9 +18,10 @@ export async function POST(request: Request) {
     const result = await askInterviewer(title, messages);
     return Response.json(result);
   } catch (error) {
-    console.error("Interview API error:", error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Interview API error:", message);
     return Response.json(
-      { error: "インタビュー処理中にエラーが発生しました" },
+      { error: "インタビュー処理中にエラーが発生しました", detail: message },
       { status: 500 }
     );
   }

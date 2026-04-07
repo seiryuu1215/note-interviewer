@@ -1,27 +1,72 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import {
+  getProfile,
+  saveProfile,
+  getSessions,
+  getArticles,
+  getUsage,
+  type UserProfile,
+  type InterviewSession,
+  type GeneratedArticle,
+} from "@/lib/storage";
 
 export default function Home() {
   const [title, setTitle] = useState("");
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [sessions, setSessions] = useState<InterviewSession[]>([]);
+  const [articles, setArticles] = useState<GeneratedArticle[]>([]);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profileBio, setProfileBio] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    setProfile(getProfile());
+    setSessions(getSessions());
+    setArticles(getArticles());
+  }, []);
 
   const handleStart = () => {
     if (!title.trim()) return;
-    const id = crypto.randomUUID();
-    sessionStorage.setItem(
-      `interview-${id}`,
-      JSON.stringify({ title: title.trim(), messages: [] })
-    );
-    router.push(`/interview/${id}`);
+
+    // 初回はプロフィール設定を促す
+    if (!profile) {
+      setShowProfile(true);
+      return;
+    }
+
+    startInterview();
   };
+
+  const startInterview = () => {
+    const id = crypto.randomUUID();
+    router.push(`/interview/${id}?title=${encodeURIComponent(title.trim())}`);
+  };
+
+  const handleSaveProfile = () => {
+    const newProfile: UserProfile = {
+      name: profileName.trim() || "名無し",
+      bio: profileBio.trim(),
+      facts: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveProfile(newProfile);
+    setProfile(newProfile);
+    setShowProfile(false);
+    startInterview();
+  };
+
+  const usage = typeof window !== "undefined" ? getUsage() : null;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
       <div className="w-full max-w-lg">
         {/* ヘッダー */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-gray-900 mb-3">
             Note Interviewer
           </h1>
@@ -31,6 +76,54 @@ export default function Home() {
             AIがインタビューして、記事を自動生成します。
           </p>
         </div>
+
+        {/* プロフィール表示 */}
+        {profile && (
+          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-gray-900">{profile.name}</p>
+                {profile.bio && (
+                  <p className="text-sm text-gray-500 mt-1">{profile.bio}</p>
+                )}
+                {profile.facts.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {profile.facts.slice(0, 5).map((fact, i) => (
+                      <span
+                        key={i}
+                        className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
+                      >
+                        {fact}
+                      </span>
+                    ))}
+                    {profile.facts.length > 5 && (
+                      <span className="text-xs text-gray-400">
+                        +{profile.facts.length - 5}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setProfileName(profile.name);
+                  setProfileBio(profile.bio);
+                  setShowProfile(true);
+                }}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                編集
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 使用量 */}
+        {usage && (
+          <div className="mb-6 text-center text-sm text-gray-400">
+            今月の記事生成: {usage.monthlyArticles} / 3（無料枠）
+          </div>
+        )}
 
         {/* タイトル入力 */}
         <div className="space-y-4">
@@ -59,8 +152,60 @@ export default function Home() {
           </button>
         </div>
 
+        {/* 過去の記事 */}
+        {articles.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-sm font-medium text-gray-700 mb-3">
+              生成した記事
+            </h2>
+            <div className="space-y-2">
+              {articles.map((article) => (
+                <button
+                  key={article.id}
+                  onClick={() => router.push(`/article/${article.id}`)}
+                  className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                >
+                  <p className="font-medium text-gray-900 text-sm truncate">
+                    {article.title}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(article.createdAt).toLocaleDateString("ja-JP")}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 過去のインタビュー */}
+        {sessions.filter((s) => s.status === "active").length > 0 && (
+          <div className="mt-6">
+            <h2 className="text-sm font-medium text-gray-700 mb-3">
+              進行中のインタビュー
+            </h2>
+            <div className="space-y-2">
+              {sessions
+                .filter((s) => s.status === "active")
+                .map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => router.push(`/interview/${session.id}`)}
+                    className="w-full text-left p-3 bg-yellow-50 border border-yellow-200 rounded-lg hover:border-yellow-300 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900 text-sm truncate">
+                      {session.title}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {session.messages.length}問回答済み
+                    </p>
+                  </button>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* 使い方 */}
-        <div className="mt-12 text-center">
+        <div className="mt-10 text-center">
           <div className="inline-flex flex-col gap-3 text-sm text-gray-400">
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-500 flex items-center justify-center text-xs font-bold">
@@ -83,6 +228,61 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* プロフィール設定モーダル */}
+      {showProfile && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">
+              プロフィール設定
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              あなたの情報を保存して、より良いインタビューを実現します。
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  名前・ニックネーム
+                </label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  placeholder="例: せいりゅう"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  自己紹介（任意）
+                </label>
+                <textarea
+                  value={profileBio}
+                  onChange={(e) => setProfileBio(e.target.value)}
+                  placeholder="例: フリーランスエンジニア / ダーツプロ"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => setShowProfile(false)}
+                className="flex-1 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                スキップ
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                保存して始める
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

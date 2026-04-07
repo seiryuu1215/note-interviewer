@@ -2,11 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
-
-type ArticleData = {
-  title: string;
-  content: string;
-};
+import { getArticle, type GeneratedArticle } from "@/lib/storage";
 
 export default function ArticlePage({
   params,
@@ -15,16 +11,16 @@ export default function ArticlePage({
 }) {
   const { id } = use(params);
   const router = useRouter();
-  const [article, setArticle] = useState<ArticleData | null>(null);
+  const [article, setArticle] = useState<GeneratedArticle | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const stored = sessionStorage.getItem(`article-${id}`);
+    const stored = getArticle(id);
     if (!stored) {
       router.push("/");
       return;
     }
-    setArticle(JSON.parse(stored));
+    setArticle(stored);
   }, [id, router]);
 
   const handleCopy = async () => {
@@ -35,13 +31,8 @@ export default function ArticlePage({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleNewArticle = () => {
-    router.push("/");
-  };
-
   if (!article) return null;
 
-  // Markdownを簡易的にレンダリング
   const renderContent = (content: string) => {
     return content.split("\n").map((line, i) => {
       if (line.startsWith("### ")) {
@@ -53,21 +44,17 @@ export default function ArticlePage({
       }
       if (line.startsWith("## ")) {
         return (
-          <h2
-            key={i}
-            className="text-xl font-bold mt-8 mb-3 text-gray-900"
-          >
+          <h2 key={i} className="text-xl font-bold mt-8 mb-3 text-gray-900">
             {line.slice(3)}
           </h2>
         );
       }
       if (line.startsWith("# ")) {
-        return null; // タイトルは別表示
+        return null;
       }
       if (line.trim() === "") {
         return <br key={i} />;
       }
-      // **太字** の処理
       const parts = line.split(/(\*\*.*?\*\*)/g);
       return (
         <p key={i} className="text-gray-700 leading-relaxed mb-1">
@@ -92,10 +79,10 @@ export default function ArticlePage({
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => router.push(`/interview/${id}`)}
+            onClick={() => router.push("/")}
             className="text-gray-500 hover:text-gray-700 text-sm"
           >
-            &larr; インタビューに戻る
+            &larr; ホームに戻る
           </button>
           <div className="flex gap-2">
             <button
@@ -105,7 +92,7 @@ export default function ArticlePage({
               {copied ? "コピーしました！" : "Markdownをコピー"}
             </button>
             <button
-              onClick={handleNewArticle}
+              onClick={() => router.push("/")}
               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
             >
               新しい記事
