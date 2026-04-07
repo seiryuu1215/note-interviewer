@@ -8,9 +8,13 @@ export async function POST(request: Request) {
       messages: Message[];
     };
 
-    if (!title || !messages) {
+    if (
+      !title ||
+      !Array.isArray(messages) ||
+      messages.some((m) => !m.role || !m.content)
+    ) {
       return Response.json(
-        { error: "title と messages は必須です" },
+        { error: "title（文字列）と messages（配列）は必須です" },
         { status: 400 }
       );
     }
@@ -18,9 +22,10 @@ export async function POST(request: Request) {
     const result = await generateArticle(title, messages);
     return Response.json(result);
   } catch (error) {
-    console.error("Generate API error:", error);
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error("Generate API error:", detail);
     return Response.json(
-      { error: "記事生成中にエラーが発生しました" },
+      { error: "記事生成中にエラーが発生しました", detail },
       { status: 500 }
     );
   }

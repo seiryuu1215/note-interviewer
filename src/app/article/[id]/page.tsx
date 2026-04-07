@@ -2,6 +2,8 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { getArticle, type GeneratedArticle } from "@/lib/storage";
 
 export default function ArticlePage({
@@ -26,52 +28,24 @@ export default function ArticlePage({
   const handleCopy = async () => {
     if (!article) return;
     const markdown = `# ${article.title}\n\n${article.content}`;
-    await navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(markdown);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // フォールバック: textareaを使ったコピー
+      const textarea = document.createElement("textarea");
+      textarea.value = markdown;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   if (!article) return null;
-
-  const renderContent = (content: string) => {
-    return content.split("\n").map((line, i) => {
-      if (line.startsWith("### ")) {
-        return (
-          <h3 key={i} className="text-lg font-bold mt-6 mb-2 text-gray-900">
-            {line.slice(4)}
-          </h3>
-        );
-      }
-      if (line.startsWith("## ")) {
-        return (
-          <h2 key={i} className="text-xl font-bold mt-8 mb-3 text-gray-900">
-            {line.slice(3)}
-          </h2>
-        );
-      }
-      if (line.startsWith("# ")) {
-        return null;
-      }
-      if (line.trim() === "") {
-        return <br key={i} />;
-      }
-      const parts = line.split(/(\*\*.*?\*\*)/g);
-      return (
-        <p key={i} className="text-gray-700 leading-relaxed mb-1">
-          {parts.map((part, j) => {
-            if (part.startsWith("**") && part.endsWith("**")) {
-              return (
-                <strong key={j} className="font-bold text-gray-900">
-                  {part.slice(2, -2)}
-                </strong>
-              );
-            }
-            return part;
-          })}
-        </p>
-      );
-    });
-  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -105,7 +79,11 @@ export default function ArticlePage({
           <h1 className="text-2xl font-bold text-gray-900 mb-8">
             {article.title}
           </h1>
-          <div>{renderContent(article.content)}</div>
+          <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-li:text-gray-700">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {article.content}
+            </ReactMarkdown>
+          </div>
         </article>
 
         {/* フッター */}

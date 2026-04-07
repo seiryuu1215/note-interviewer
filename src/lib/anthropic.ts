@@ -1,22 +1,82 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic();
+export const anthropicClient = new Anthropic();
 
-const MODEL = "claude-sonnet-4-5-20250929";
+export const MODEL = "claude-sonnet-4-5-20250929";
 
 export type Message = {
   role: "user" | "assistant";
   content: string;
 };
 
+function parseJson<T>(text: string): T | null {
+  // まず全体をそのまま試す
+  try {
+    return JSON.parse(text);
+  } catch {
+    // pass
+  }
+
+  // ```json ブロックを探す
+  const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+  if (codeBlockMatch) {
+    try {
+      return JSON.parse(codeBlockMatch[1]);
+    } catch {
+      // pass
+    }
+  }
+
+  // 最初の { から対応する } までを追跡
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        try {
+          return JSON.parse(text.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function askInterviewer(
   title: string,
   messages: Message[]
 ): Promise<{ message: string; shouldEnd: boolean }> {
-  const systemPrompt = `あなたはプロのnoteライター兼インタビュアーです。
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system: `あなたはプロのnoteライター兼インタビュアーです。
 
 ## あなたの役割
-ユーザーが「${title}」というタイトルで記事を書きたいと言っています。
+ユーザーが記事を書きたいと言っています。
 記事に必要な情報を引き出すためのインタビューを行ってください。
 
 ## インタビューのルール
@@ -31,16 +91,11 @@ export async function askInterviewer(
 - 具体的な体験・エピソード
 - そこから得た学び・気づき
 - 読者へのメッセージ
-目安は5〜10問。ユーザーが「もう終わりでいい」等と言ったら即終了。
+目安は5〜10問。ユーザーが「もう終わりでいい」「十分」等と言ったら即終了。
 
 ## 回答フォーマット
 必ず以下のJSON形式のみで回答してください（他のテキストは含めない）：
-{"message": "質問テキスト", "shouldEnd": false}`;
-
-  const response = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    system: systemPrompt,
+{"message": "質問テキスト", "shouldEnd": false}`,
     messages: messages.map((m) => ({
       role: m.role,
       content: m.content,
@@ -50,14 +105,8 @@ export async function askInterviewer(
   const text =
     response.content[0].type === "text" ? response.content[0].text : "";
 
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } catch {
-    // JSONパース失敗時はテキストをそのまま返す
-  }
+  const parsed = parseJson<{ message: string; shouldEnd: boolean }>(text);
+  if (parsed?.message) return parsed;
 
   return { message: text, shouldEnd: false };
 }
@@ -67,10 +116,13 @@ export async function generateArticle(
   messages: Message[]
 ): Promise<{ title: string; content: string }> {
   const interviewLog = messages
-    .map((m) => `${m.role === "user" ? "回答者" : "インタビュアー"}: ${m.content}`)
+    .map(
+      (m) =>
+        `${m.role === "user" ? "回答者" : "インタビュアー"}: ${m.content}`
+    )
     .join("\n\n");
 
-  const response = await client.messages.create({
+  const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 4096,
     system: `あなたはプロのnoteライターです。
@@ -82,7 +134,7 @@ export async function generateArticle(
 - 段落短め、見出し多め
 - 2000〜3000字目安
 - 読みやすい口語体
-- Markdown形式で出力
+- Markdown形式で出力（見出しは ## から開始、# は使わない）
 
 ## 構成
 1. 導入（読者の興味を引く）
@@ -91,16 +143,13 @@ export async function generateArticle(
 4. 学び・気づき
 5. 読者へのメッセージ（締め）
 
-## タイトル
-「${title}」を尊重しつつ、必要なら副題を提案。
-
 ## 出力フォーマット
-必ず以下のJSON形式のみで回答（他のテキストは含めない）：
-{"title": "記事タイトル", "content": "記事本文（Markdown）"}`,
+必ず以下のJSON形式のみで回答してください。contentにはMarkdown文字列を入れてください：
+{"title": "記事タイトル", "content": "記事本文"}`,
     messages: [
       {
         role: "user",
-        content: `以下のインタビュー記録から記事を生成してください：\n\n${interviewLog}`,
+        content: `記事タイトル：「${title}」\n\n以下のインタビュー記録から記事を生成してください：\n\n${interviewLog}`,
       },
     ],
   });
@@ -108,14 +157,41 @@ export async function generateArticle(
   const text =
     response.content[0].type === "text" ? response.content[0].text : "";
 
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
-  } catch {
-    // JSONパース失敗時
-  }
+  const parsed = parseJson<{ title: string; content: string }>(text);
+  if (parsed?.title && parsed?.content) return parsed;
 
   return { title, content: text };
+}
+
+export async function extractFacts(
+  messages: Message[]
+): Promise<{ facts: string[] }> {
+  const interviewLog = messages
+    .filter((m) => m.role === "user")
+    .map((m) => m.content)
+    .join("\n");
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system: `ユーザーのインタビュー回答から、プロフィールに蓄積すべき事実を抽出してください。
+箇条書きで、短く具体的に。例：
+- フリーランスエンジニア
+- 25歳
+- ダーツプロ（PERFECT所属）
+
+JSON形式で返してください：{"facts": ["事実1", "事実2", ...]}`,
+    messages: [
+      {
+        role: "user",
+        content: `以下の回答から事実を抽出：\n${interviewLog}`,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<{ facts: string[] }>(text);
+  return parsed ?? { facts: [] };
 }

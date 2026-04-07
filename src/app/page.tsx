@@ -8,9 +8,11 @@ import {
   getSessions,
   getArticles,
   getUsage,
+  FREE_LIMIT,
   type UserProfile,
   type InterviewSession,
   type GeneratedArticle,
+  type UsageData,
 } from "@/lib/storage";
 
 export default function Home() {
@@ -18,6 +20,7 @@ export default function Home() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [articles, setArticles] = useState<GeneratedArticle[]>([]);
+  const [usage, setUsage] = useState<UsageData | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileBio, setProfileBio] = useState("");
@@ -27,23 +30,23 @@ export default function Home() {
     setProfile(getProfile());
     setSessions(getSessions());
     setArticles(getArticles());
+    setUsage(getUsage());
   }, []);
+
+  const startInterview = () => {
+    const id = crypto.randomUUID();
+    router.push(`/interview/${id}?title=${encodeURIComponent(title.trim())}`);
+  };
 
   const handleStart = () => {
     if (!title.trim()) return;
 
-    // 初回はプロフィール設定を促す
     if (!profile) {
       setShowProfile(true);
       return;
     }
 
     startInterview();
-  };
-
-  const startInterview = () => {
-    const id = crypto.randomUUID();
-    router.push(`/interview/${id}?title=${encodeURIComponent(title.trim())}`);
   };
 
   const handleSaveProfile = () => {
@@ -60,7 +63,22 @@ export default function Home() {
     startInterview();
   };
 
-  const usage = typeof window !== "undefined" ? getUsage() : null;
+  const handleSkipProfile = () => {
+    // スキップ時もデフォルトプロフィールを保存してインタビュー開始
+    const defaultProfile: UserProfile = {
+      name: "名無し",
+      bio: "",
+      facts: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    saveProfile(defaultProfile);
+    setProfile(defaultProfile);
+    setShowProfile(false);
+    startInterview();
+  };
+
+  const activeSessions = sessions.filter((s) => s.status === "active");
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
@@ -121,7 +139,7 @@ export default function Home() {
         {/* 使用量 */}
         {usage && (
           <div className="mb-6 text-center text-sm text-gray-400">
-            今月の記事生成: {usage.monthlyArticles} / 3（無料枠）
+            今月の記事生成: {usage.monthlyArticles} / {FREE_LIMIT}（無料枠）
           </div>
         )}
 
@@ -177,29 +195,28 @@ export default function Home() {
           </div>
         )}
 
-        {/* 過去のインタビュー */}
-        {sessions.filter((s) => s.status === "active").length > 0 && (
+        {/* 進行中のインタビュー */}
+        {activeSessions.length > 0 && (
           <div className="mt-6">
             <h2 className="text-sm font-medium text-gray-700 mb-3">
               進行中のインタビュー
             </h2>
             <div className="space-y-2">
-              {sessions
-                .filter((s) => s.status === "active")
-                .map((session) => (
-                  <button
-                    key={session.id}
-                    onClick={() => router.push(`/interview/${session.id}`)}
-                    className="w-full text-left p-3 bg-yellow-50 border border-yellow-200 rounded-lg hover:border-yellow-300 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900 text-sm truncate">
-                      {session.title}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {session.messages.length}問回答済み
-                    </p>
-                  </button>
-                ))}
+              {activeSessions.map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => router.push(`/interview/${session.id}`)}
+                  className="w-full text-left p-3 bg-yellow-50 border border-yellow-200 rounded-lg hover:border-yellow-300 transition-colors"
+                >
+                  <p className="font-medium text-gray-900 text-sm truncate">
+                    {session.title}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {session.messages.filter((m) => m.role === "user").length}
+                    問回答済み
+                  </p>
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -268,7 +285,7 @@ export default function Home() {
             </div>
             <div className="flex gap-2 mt-6">
               <button
-                onClick={() => setShowProfile(false)}
+                onClick={handleSkipProfile}
                 className="flex-1 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 スキップ

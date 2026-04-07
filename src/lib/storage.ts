@@ -2,7 +2,7 @@
 export type UserProfile = {
   name: string;
   bio: string;
-  facts: string[]; // インタビューから抽出した事実
+  facts: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -29,16 +29,30 @@ const KEYS = {
   profile: "note-interviewer-profile",
   sessions: "note-interviewer-sessions",
   articles: "note-interviewer-articles",
+  usage: "note-interviewer-usage",
 } as const;
+
+function safeParse<T>(json: string | null, fallback: T): T {
+  if (!json) return fallback;
+  try {
+    return JSON.parse(json);
+  } catch {
+    return fallback;
+  }
+}
+
+function isClient(): boolean {
+  return typeof window !== "undefined";
+}
 
 // --- プロフィール ---
 export function getProfile(): UserProfile | null {
-  if (typeof window === "undefined") return null;
-  const data = localStorage.getItem(KEYS.profile);
-  return data ? JSON.parse(data) : null;
+  if (!isClient()) return null;
+  return safeParse(localStorage.getItem(KEYS.profile), null);
 }
 
 export function saveProfile(profile: UserProfile): void {
+  if (!isClient()) return;
   localStorage.setItem(KEYS.profile, JSON.stringify(profile));
 }
 
@@ -54,9 +68,8 @@ export function updateProfileFacts(newFacts: string[]): void {
 
 // --- セッション ---
 export function getSessions(): InterviewSession[] {
-  if (typeof window === "undefined") return [];
-  const data = localStorage.getItem(KEYS.sessions);
-  return data ? JSON.parse(data) : [];
+  if (!isClient()) return [];
+  return safeParse(localStorage.getItem(KEYS.sessions), []);
 }
 
 export function getSession(id: string): InterviewSession | null {
@@ -64,6 +77,7 @@ export function getSession(id: string): InterviewSession | null {
 }
 
 export function saveSession(session: InterviewSession): void {
+  if (!isClient()) return;
   const sessions = getSessions();
   const idx = sessions.findIndex((s) => s.id === session.id);
   if (idx >= 0) {
@@ -75,15 +89,15 @@ export function saveSession(session: InterviewSession): void {
 }
 
 export function deleteSession(id: string): void {
+  if (!isClient()) return;
   const sessions = getSessions().filter((s) => s.id !== id);
   localStorage.setItem(KEYS.sessions, JSON.stringify(sessions));
 }
 
 // --- 記事 ---
 export function getArticles(): GeneratedArticle[] {
-  if (typeof window === "undefined") return [];
-  const data = localStorage.getItem(KEYS.articles);
-  return data ? JSON.parse(data) : [];
+  if (!isClient()) return [];
+  return safeParse(localStorage.getItem(KEYS.articles), []);
 }
 
 export function getArticle(id: string): GeneratedArticle | null {
@@ -91,6 +105,7 @@ export function getArticle(id: string): GeneratedArticle | null {
 }
 
 export function saveArticle(article: GeneratedArticle): void {
+  if (!isClient()) return;
   const articles = getArticles();
   articles.unshift(article);
   localStorage.setItem(KEYS.articles, JSON.stringify(articles));
@@ -101,28 +116,25 @@ export type UsageData = {
   totalInterviews: number;
   totalArticles: number;
   monthlyArticles: number;
-  lastResetMonth: string; // YYYY-MM
+  lastResetMonth: string;
 };
 
-export function getUsage(): UsageData {
-  if (typeof window === "undefined")
-    return {
-      totalInterviews: 0,
-      totalArticles: 0,
-      monthlyArticles: 0,
-      lastResetMonth: "",
-    };
-  const data = localStorage.getItem("note-interviewer-usage");
-  const usage: UsageData = data
-    ? JSON.parse(data)
-    : {
-        totalInterviews: 0,
-        totalArticles: 0,
-        monthlyArticles: 0,
-        lastResetMonth: new Date().toISOString().slice(0, 7),
-      };
+const DEFAULT_USAGE: UsageData = {
+  totalInterviews: 0,
+  totalArticles: 0,
+  monthlyArticles: 0,
+  lastResetMonth: "",
+};
 
-  // 月が変わったらリセット
+export const FREE_LIMIT = 3;
+
+export function getUsage(): UsageData {
+  if (!isClient()) return { ...DEFAULT_USAGE };
+  const usage = safeParse(localStorage.getItem(KEYS.usage), {
+    ...DEFAULT_USAGE,
+    lastResetMonth: new Date().toISOString().slice(0, 7),
+  });
+
   const currentMonth = new Date().toISOString().slice(0, 7);
   if (usage.lastResetMonth !== currentMonth) {
     usage.monthlyArticles = 0;
@@ -132,22 +144,20 @@ export function getUsage(): UsageData {
   return usage;
 }
 
-export function incrementUsage(
-  type: "interview" | "article"
-): { allowed: boolean; usage: UsageData } {
+export function canGenerateArticle(): boolean {
+  return getUsage().monthlyArticles < FREE_LIMIT;
+}
+
+export function incrementUsage(type: "interview" | "article"): void {
+  if (!isClient()) return;
   const usage = getUsage();
-  const FREE_LIMIT = 3; // 無料枠：月3記事
 
   if (type === "interview") {
     usage.totalInterviews++;
   } else {
-    if (usage.monthlyArticles >= FREE_LIMIT) {
-      return { allowed: false, usage };
-    }
     usage.totalArticles++;
     usage.monthlyArticles++;
   }
 
-  localStorage.setItem("note-interviewer-usage", JSON.stringify(usage));
-  return { allowed: true, usage };
+  localStorage.setItem(KEYS.usage, JSON.stringify(usage));
 }
