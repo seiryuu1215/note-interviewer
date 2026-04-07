@@ -1,13 +1,19 @@
+import { memo } from "react";
+
 type ChatBubbleProps = {
   role: "user" | "assistant";
   content: string;
 };
 
-export default function ChatBubble({ role, content }: ChatBubbleProps) {
+function ChatBubble({ role, content }: ChatBubbleProps) {
   const isUser = role === "user";
+  const label = isUser ? "あなた" : "インタビュアー";
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}>
+    <div
+      className={`flex ${isUser ? "justify-end" : "justify-start"} mb-4`}
+      aria-label={`${label}: ${content}`}
+    >
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
           isUser
@@ -20,3 +26,5 @@ export default function ChatBubble({ role, content }: ChatBubbleProps) {
     </div>
   );
 }
+
+export default memo(ChatBubble);

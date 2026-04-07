@@ -45,6 +45,16 @@ function isClient(): boolean {
   return typeof window !== "undefined";
 }
 
+function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    console.warn("localStorage quota exceeded or unavailable");
+    return false;
+  }
+}
+
 // --- プロフィール ---
 export function getProfile(): UserProfile | null {
   if (!isClient()) return null;
@@ -53,7 +63,7 @@ export function getProfile(): UserProfile | null {
 
 export function saveProfile(profile: UserProfile): void {
   if (!isClient()) return;
-  localStorage.setItem(KEYS.profile, JSON.stringify(profile));
+  safeSetItem(KEYS.profile, JSON.stringify(profile));
 }
 
 export function updateProfileFacts(newFacts: string[]): void {
@@ -85,13 +95,16 @@ export function saveSession(session: InterviewSession): void {
   } else {
     sessions.unshift(session);
   }
-  localStorage.setItem(KEYS.sessions, JSON.stringify(sessions));
+
+  // 古いセッションを制限（最大50件）
+  const trimmed = sessions.slice(0, 50);
+  safeSetItem(KEYS.sessions, JSON.stringify(trimmed));
 }
 
 export function deleteSession(id: string): void {
   if (!isClient()) return;
   const sessions = getSessions().filter((s) => s.id !== id);
-  localStorage.setItem(KEYS.sessions, JSON.stringify(sessions));
+  safeSetItem(KEYS.sessions, JSON.stringify(sessions));
 }
 
 // --- 記事 ---
@@ -107,8 +120,12 @@ export function getArticle(id: string): GeneratedArticle | null {
 export function saveArticle(article: GeneratedArticle): void {
   if (!isClient()) return;
   const articles = getArticles();
-  articles.unshift(article);
-  localStorage.setItem(KEYS.articles, JSON.stringify(articles));
+  // 同じIDの重複を防ぐ
+  const filtered = articles.filter((a) => a.id !== article.id);
+  filtered.unshift(article);
+  // 最大30件
+  const trimmed = filtered.slice(0, 30);
+  safeSetItem(KEYS.articles, JSON.stringify(trimmed));
 }
 
 // --- 使用量トラッキング（収益化用） ---
@@ -159,5 +176,5 @@ export function incrementUsage(type: "interview" | "article"): void {
     usage.monthlyArticles++;
   }
 
-  localStorage.setItem(KEYS.usage, JSON.stringify(usage));
+  safeSetItem(KEYS.usage, JSON.stringify(usage));
 }

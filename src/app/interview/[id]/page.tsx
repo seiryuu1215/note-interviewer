@@ -35,6 +35,7 @@ export default function InterviewPage({
   const [generating, setGenerating] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const buildApiMessages = useCallback(
     (title: string, messages: Message[]): Message[] => {
@@ -62,10 +63,13 @@ export default function InterviewPage({
       setError(null);
       try {
         const apiMessages = buildApiMessages(title, []);
+        const controller = new AbortController();
+        abortRef.current = controller;
         const res = await fetch("/api/interview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ title, messages: apiMessages }),
+          signal: controller.signal,
         });
         if (!res.ok) {
           const err = await res.json();
@@ -79,11 +83,13 @@ export default function InterviewPage({
         setSession(updated);
         saveSession(updated);
       } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
         setError(
           e instanceof Error ? e.message : "質問の取得に失敗しました"
         );
       } finally {
         setLoading(false);
+        abortRef.current = null;
         inputRef.current?.focus();
       }
     },
@@ -92,6 +98,13 @@ export default function InterviewPage({
 
   useEffect(() => {
     const existing = getSession(id);
+
+    // 完了済みセッション → 記事ページへリダイレクト
+    if (existing?.status === "completed") {
+      router.push(`/article/${id}`);
+      return;
+    }
+
     if (existing) {
       setSession(existing);
       if (existing.messages.length > 0) return;
@@ -114,11 +127,15 @@ export default function InterviewPage({
     setSession(newSession);
     saveSession(newSession);
     fetchFirstQuestion(newSession.title, newSession);
+
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [id, searchParams, router, fetchFirstQuestion]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages]);
+  }, [session?.messages.length]);
 
   const handleSend = async () => {
     if (!input.trim() || !session || loading) return;
@@ -133,14 +150,23 @@ export default function InterviewPage({
     setSession(updated);
     saveSession(updated);
     setInput("");
+
+    // テキストエリアの高さをリセット
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+
     setLoading(true);
 
     try {
       const apiMessages = buildApiMessages(session.title, updatedMessages);
+      const controller = new AbortController();
+      abortRef.current = controller;
       const res = await fetch("/api/interview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: session.title, messages: apiMessages }),
+        signal: controller.signal,
       });
       if (!res.ok) {
         const err = await res.json();
@@ -164,11 +190,13 @@ export default function InterviewPage({
         setShouldEnd(true);
       }
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(
         e instanceof Error ? e.message : "回答の送信に失敗しました"
       );
     } finally {
       setLoading(false);
+      abortRef.current = null;
       inputRef.current?.focus();
     }
   };
@@ -177,7 +205,7 @@ export default function InterviewPage({
     if (!session) return;
 
     if (!canGenerateArticle()) {
-      alert("今月の無料枠（3記事）を使い切りました。");
+      setError("今月の無料枠（3記事）を使い切りました。");
       return;
     }
 
@@ -185,6 +213,9 @@ export default function InterviewPage({
     setError(null);
 
     try {
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       const [articleRes, factsRes] = await Promise.all([
         fetch("/api/generate", {
           method: "POST",
@@ -193,11 +224,13 @@ export default function InterviewPage({
             title: session.title,
             messages: session.messages,
           }),
+          signal: controller.signal,
         }),
         fetch("/api/extract-facts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: session.messages }),
+          signal: controller.signal,
         }),
       ]);
 
@@ -229,7 +262,7 @@ export default function InterviewPage({
       };
       saveSession(completedSession);
 
-      // 記事を保存
+      // 記事を保存（重複防止済み）
       saveArticle({
         id,
         sessionId: session.id,
@@ -244,12 +277,14 @@ export default function InterviewPage({
 
       router.push(`/article/${id}`);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "記事生成に失敗しました");
       setGenerating(false);
+    } finally {
+      abortRef.current = null;
     }
   };
 
-  // テキストエリアの自動リサイズ
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     const el = e.target;
@@ -260,36 +295,51 @@ export default function InterviewPage({
   if (!session) return null;
 
   return (
-    <div className="flex flex-col h-screen max-w-2xl mx-auto">
+    <div className="flex flex-col h-dvh max-w-2xl mx-auto">
       {/* ヘッダー */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <button
-          onClick={() => router.push("/")}
-          className="text-gray-500 hover:text-gray-700 text-sm"
+          onClick={() => {
+            abortRef.current?.abort();
+            router.push("/");
+          }}
+          className="text-gray-500 hover:text-gray-700 text-sm min-h-[44px] min-w-[44px] flex items-center"
         >
           &larr; 戻る
         </button>
-        <h2 className="text-sm font-medium text-gray-700 truncate max-w-[60%]">
+        <h2
+          className="text-sm font-medium text-gray-700 truncate max-w-[60%]"
+          title={session.title}
+        >
           {session.title}
         </h2>
-        {!shouldEnd && (
+        {!shouldEnd ? (
           <button
             onClick={() => setShouldEnd(true)}
-            className="text-xs text-gray-400 hover:text-gray-600"
+            className="text-xs text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-end"
           >
             終了する
           </button>
+        ) : (
+          <div className="w-11" />
         )}
-        {shouldEnd && <div className="w-12" />}
       </div>
 
       {/* メッセージ一覧 */}
-      <div className="flex-1 overflow-y-auto px-4 py-6">
+      <div
+        className="flex-1 overflow-y-auto px-4 py-6"
+        role="log"
+        aria-label="インタビュー"
+      >
         {session.messages.map((msg, i) => (
-          <ChatBubble key={i} role={msg.role} content={msg.content} />
+          <ChatBubble key={`${id}-${i}`} role={msg.role} content={msg.content} />
         ))}
         {loading && (
-          <div className="flex justify-start mb-4">
+          <div
+            className="flex justify-start mb-4"
+            role="status"
+            aria-label="回答を生成中"
+          >
             <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
@@ -310,21 +360,24 @@ export default function InterviewPage({
 
       {/* エラー表示 */}
       {error && (
-        <div className="px-4 py-2 bg-red-50 border-t border-red-200">
+        <div
+          className="px-4 py-2 bg-red-50 border-t border-red-200"
+          role="alert"
+        >
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
 
       {/* 記事生成ボタン */}
       {shouldEnd && !generating && (
-        <div className="px-4 py-3 bg-green-50 border-t border-green-200">
+        <div className="px-4 py-3 bg-green-50 border-t border-green-200 pb-[env(safe-area-inset-bottom)]">
           <div className="flex items-center justify-between">
             <p className="text-sm text-green-700">
               インタビュー完了！記事を生成しますか？
             </p>
             <button
               onClick={handleGenerate}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
             >
               記事を生成
             </button>
@@ -334,7 +387,11 @@ export default function InterviewPage({
 
       {/* 生成中のローディング */}
       {generating && (
-        <div className="px-4 py-4 bg-green-50 border-t border-green-200">
+        <div
+          className="px-4 py-4 bg-green-50 border-t border-green-200 pb-[env(safe-area-inset-bottom)]"
+          role="status"
+          aria-label="記事を生成中"
+        >
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-green-700">
@@ -346,7 +403,7 @@ export default function InterviewPage({
 
       {/* 入力エリア */}
       {!shouldEnd && (
-        <div className="px-4 py-3 border-t border-gray-200">
+        <div className="px-4 py-3 border-t border-gray-200 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="flex gap-2 items-end">
             <textarea
               ref={inputRef}
@@ -363,11 +420,13 @@ export default function InterviewPage({
               className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
               style={{ maxHeight: "120px" }}
               disabled={loading}
+              aria-label="回答を入力"
             />
             <button
               onClick={handleSend}
               disabled={!input.trim() || loading}
-              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
+              aria-label="送信"
             >
               送信
             </button>

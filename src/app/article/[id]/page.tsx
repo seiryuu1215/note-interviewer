@@ -30,44 +30,43 @@ export default function ArticlePage({
     const markdown = `# ${article.title}\n\n${article.content}`;
     try {
       await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch {
-      // フォールバック: textareaを使ったコピー
       const textarea = document.createElement("textarea");
       textarea.value = markdown;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
       document.body.appendChild(textarea);
       textarea.select();
       document.execCommand("copy");
       document.body.removeChild(textarea);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (!article) return null;
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="max-w-2xl mx-auto px-4 py-8 pb-[env(safe-area-inset-bottom)]">
         {/* ヘッダー */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-2">
           <button
             onClick={() => router.push("/")}
-            className="text-gray-500 hover:text-gray-700 text-sm"
+            className="text-gray-500 hover:text-gray-700 text-sm min-h-[44px] flex items-center"
           >
             &larr; ホームに戻る
           </button>
           <div className="flex gap-2">
             <button
               onClick={handleCopy}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
             >
               {copied ? "コピーしました！" : "Markdownをコピー"}
             </button>
             <button
               onClick={() => router.push("/")}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors"
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
             >
               新しい記事
             </button>
@@ -88,12 +87,12 @@ export default function ArticlePage({
 
         {/* フッター */}
         <div className="mt-12 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-500">
             Note Interviewer で生成された記事
           </p>
           <button
             onClick={handleCopy}
-            className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-medium"
+            className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-medium min-h-[44px]"
           >
             {copied ? "コピーしました！" : "Markdownをコピーしてnoteに貼り付け"}
           </button>

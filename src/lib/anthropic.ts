@@ -10,14 +10,12 @@ export type Message = {
 };
 
 function parseJson<T>(text: string): T | null {
-  // まず全体をそのまま試す
   try {
     return JSON.parse(text);
   } catch {
     // pass
   }
 
-  // ```json ブロックを探す
   const codeBlockMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
   if (codeBlockMatch) {
     try {
@@ -27,7 +25,6 @@ function parseJson<T>(text: string): T | null {
     }
   }
 
-  // 最初の { から対応する } までを追跡
   const start = text.indexOf("{");
   if (start === -1) return null;
 
@@ -73,24 +70,27 @@ export async function askInterviewer(
   const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 1024,
+    temperature: 0.5,
     system: `あなたはプロのnoteライター兼インタビュアーです。
 
 ## あなたの役割
 ユーザーが記事を書きたいと言っています。
-記事に必要な情報を引き出すためのインタビューを行ってください。
+最終的に以下の構成で記事を生成するため、必要な情報を引き出すインタビューを行ってください：
+1. 導入（読者の興味を引くフック）
+2. 背景・きっかけ
+3. 具体的な体験・エピソード
+4. 学び・気づき
+5. 読者へのメッセージ（締め）
 
 ## インタビューのルール
 - 1ターンにつき1問だけ質問する（複数質問しない）
 - ユーザーの言葉から「なぜ？」「具体的には？」「その時どう感じた？」を引き出す
 - 専門用語が出たら噛み砕いた再質問をする
 - 共感的で温かいトーンを保つ
+- ユーザー情報が提供されている場合、既知の情報と重複する質問は避ける
 
 ## インタビュー終了の判断
-以下の情報が揃ったと判断したら "shouldEnd" を true にする：
-- 背景・きっかけ
-- 具体的な体験・エピソード
-- そこから得た学び・気づき
-- 読者へのメッセージ
+上記5つの構成要素に十分な情報が揃ったと判断したら "shouldEnd" を true にする。
 目安は5〜10問。ユーザーが「もう終わりでいい」「十分」等と言ったら即終了。
 
 ## 回答フォーマット
@@ -125,6 +125,7 @@ export async function generateArticle(
   const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 4096,
+    temperature: 0.7,
     system: `あなたはプロのnoteライターです。
 以下のインタビュー記録をもとに、note記事を生成してください。
 
@@ -132,16 +133,16 @@ export async function generateArticle(
 - 一人称「僕」、カジュアルだけど芯のあるトーン
 - 技術用語は最小限、使う場合は必ず説明
 - 段落短め、見出し多め
-- 2000〜3000字目安
+- **2000〜3000字**で書くこと（短すぎる場合はエピソードを膨らませる）
 - 読みやすい口語体
 - Markdown形式で出力（見出しは ## から開始、# は使わない）
 
-## 構成
-1. 導入（読者の興味を引く）
-2. 背景・きっかけ
-3. 体験・エピソード
-4. 学び・気づき
-5. 読者へのメッセージ（締め）
+## 構成（必ずこの順序で）
+1. 導入（読者の共感を呼ぶフック、1-2段落）
+2. 背景・きっかけ（なぜこのテーマなのか）
+3. 体験・エピソード（具体的なストーリー、これがメイン）
+4. 学び・気づき（読者にとっての価値）
+5. 読者へのメッセージ（行動を促す締め）
 
 ## 出力フォーマット
 必ず以下のJSON形式のみで回答してください。contentにはMarkdown文字列を入れてください：
@@ -174,6 +175,7 @@ export async function extractFacts(
   const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 1024,
+    temperature: 0.3,
     system: `ユーザーのインタビュー回答から、プロフィールに蓄積すべき事実を抽出してください。
 箇条書きで、短く具体的に。例：
 - フリーランスエンジニア
