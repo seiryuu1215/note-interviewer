@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, use } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import ChatBubble from "@/components/ChatBubble";
+import QuestionCard from "@/components/interview/QuestionCard";
+import ProgressBar from "@/components/interview/ProgressBar";
+import FlowSummary from "@/components/interview/FlowSummary";
+import VoiceInput from "@/components/interview/VoiceInput";
+import ImageUpload from "@/components/interview/ImageUpload";
 import {
   getSession,
   saveSession,
@@ -19,6 +23,8 @@ type Message = {
   content: string;
 };
 
+const ESTIMATED_TOTAL_QUESTIONS = 10;
+
 export default function InterviewPage({
   params,
 }: {
@@ -28,13 +34,12 @@ export default function InterviewPage({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [session, setSession] = useState<InterviewSession | null>(null);
-  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shouldEnd, setShouldEnd] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [allImages, setAllImages] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
 
   const buildApiMessages = useCallback(
@@ -90,7 +95,6 @@ export default function InterviewPage({
       } finally {
         setLoading(false);
         abortRef.current = null;
-        inputRef.current?.focus();
       }
     },
     [buildApiMessages]
@@ -111,6 +115,7 @@ export default function InterviewPage({
     }
 
     const title = searchParams.get("title");
+    const firstQuestion = searchParams.get("firstQuestion");
     if (!title && !existing) {
       router.push("/");
       return;
@@ -126,80 +131,104 @@ export default function InterviewPage({
 
     setSession(newSession);
     saveSession(newSession);
-    fetchFirstQuestion(newSession.title, newSession);
+
+    // テーマ分析で生成された初回質問がある場合はAPI呼び出しをスキップ
+    if (firstQuestion) {
+      const sessionWithQuestion: InterviewSession = {
+        ...newSession,
+        messages: [{ role: "assistant", content: firstQuestion }],
+      };
+      setSession(sessionWithQuestion);
+      saveSession(sessionWithQuestion);
+    } else {
+      fetchFirstQuestion(newSession.title, newSession);
+    }
 
     return () => {
       abortRef.current?.abort();
     };
   }, [id, searchParams, router, fetchFirstQuestion]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [session?.messages.length]);
+  const handleImageAdd = useCallback((base64: string) => {
+    setImages((prev) => [...prev, base64]);
+  }, []);
 
-  const handleSend = async () => {
-    if (!input.trim() || !session || loading) return;
+  const handleImageRemove = useCallback((index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
 
-    setError(null);
-    const userMessage: Message = { role: "user", content: input.trim() };
-    const updatedMessages = [...session.messages, userMessage];
-    const updated: InterviewSession = {
-      ...session,
-      messages: updatedMessages,
-    };
-    setSession(updated);
-    saveSession(updated);
-    setInput("");
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!text.trim() || !session || loading) return;
 
-    // テキストエリアの高さをリセット
-    if (inputRef.current) {
-      inputRef.current.style.height = "auto";
-    }
-
-    setLoading(true);
-
-    try {
-      const apiMessages = buildApiMessages(session.title, updatedMessages);
-      const controller = new AbortController();
-      abortRef.current = controller;
-      const res = await fetch("/api/interview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: session.title, messages: apiMessages }),
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || err.error || "API エラー");
-      }
-      const result = await res.json();
-
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: result.message,
-      };
-      const finalMessages = [...updatedMessages, assistantMessage];
-      const finalSession: InterviewSession = {
+      setError(null);
+      const currentImages = [...images];
+      const userMessage: Message = { role: "user", content: text.trim() };
+      const updatedMessages = [...session.messages, userMessage];
+      const updated: InterviewSession = {
         ...session,
-        messages: finalMessages,
+        messages: updatedMessages,
       };
-      setSession(finalSession);
-      saveSession(finalSession);
-
-      if (result.shouldEnd) {
-        setShouldEnd(true);
+      setSession(updated);
+      saveSession(updated);
+      // 送信画像をセッション全体の画像リストに蓄積（最大5枚）
+      if (currentImages.length > 0) {
+        setAllImages((prev) => {
+          const combined = [...prev, ...currentImages];
+          return combined.slice(0, 5);
+        });
       }
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      setError(
-        e instanceof Error ? e.message : "回答の送信に失敗しました"
-      );
-    } finally {
-      setLoading(false);
-      abortRef.current = null;
-      inputRef.current?.focus();
-    }
-  };
+      setImages([]);
+
+      setLoading(true);
+
+      try {
+        const apiMessages = buildApiMessages(session.title, updatedMessages);
+        const controller = new AbortController();
+        abortRef.current = controller;
+        const res = await fetch("/api/interview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: session.title,
+            messages: apiMessages,
+            ...(currentImages.length > 0 ? { images: currentImages } : {}),
+          }),
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || err.error || "API エラー");
+        }
+        const result = await res.json();
+
+        const assistantMessage: Message = {
+          role: "assistant",
+          content: result.message,
+        };
+        const finalMessages = [...updatedMessages, assistantMessage];
+        const finalSession: InterviewSession = {
+          ...session,
+          messages: finalMessages,
+        };
+        setSession(finalSession);
+        saveSession(finalSession);
+
+        if (result.shouldEnd) {
+          setShouldEnd(true);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setError(
+          e instanceof Error ? e.message : "回答の送信に失敗しました"
+        );
+      } finally {
+        setLoading(false);
+        abortRef.current = null;
+      }
+    },
+    [session, loading, images, buildApiMessages]
+  );
 
   const handleGenerate = async () => {
     if (!session) return;
@@ -223,6 +252,7 @@ export default function InterviewPage({
           body: JSON.stringify({
             title: session.title,
             messages: session.messages,
+            ...(allImages.length > 0 ? { imageCount: allImages.length } : {}),
           }),
           signal: controller.signal,
         }),
@@ -268,6 +298,7 @@ export default function InterviewPage({
         sessionId: session.id,
         title: article.title,
         content: article.content,
+        ...(allImages.length > 0 ? { images: allImages } : {}),
         createdAt: new Date().toISOString(),
       });
 
@@ -285,12 +316,15 @@ export default function InterviewPage({
     }
   };
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-  };
+  // 現在の質問数（assistantメッセージの数）
+  const questionCount = session?.messages.filter(
+    (m) => m.role === "assistant"
+  ).length ?? 0;
+
+  // 最新のassistantメッセージ（現在の質問）
+  const latestQuestion =
+    session?.messages.filter((m) => m.role === "assistant").at(-1)?.content ??
+    "";
 
   if (!session) return null;
 
@@ -325,37 +359,20 @@ export default function InterviewPage({
         )}
       </div>
 
-      {/* メッセージ一覧 */}
-      <div
-        className="flex-1 overflow-y-auto px-4 py-6"
-        role="log"
-        aria-label="インタビュー"
-      >
-        {session.messages.map((msg, i) => (
-          <ChatBubble key={`${id}-${i}`} role={msg.role} content={msg.content} />
-        ))}
-        {loading && (
-          <div
-            className="flex justify-start mb-4"
-            role="status"
-            aria-label="回答を生成中"
-          >
-            <div className="bg-gray-100 rounded-2xl rounded-bl-md px-4 py-3">
-              <div className="flex gap-1">
-                <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                <span
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.1s" }}
-                />
-                <span
-                  className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                  style={{ animationDelay: "0.2s" }}
-                />
-              </div>
-            </div>
+      {/* プログレスバー */}
+      <ProgressBar current={questionCount} total={ESTIMATED_TOTAL_QUESTIONS} />
+
+      {/* メインコンテンツ（スクロール可能） */}
+      <div className="flex-1 overflow-y-auto flex flex-col">
+        {/* 質問カード */}
+        <div className="flex-1 flex items-center justify-center py-4">
+          <div className="w-full">
+            <QuestionCard question={latestQuestion} isLoading={loading && !latestQuestion} />
           </div>
-        )}
-        <div ref={messagesEndRef} />
+        </div>
+
+        {/* これまでの流れ */}
+        <FlowSummary messages={session.messages} />
       </div>
 
       {/* エラー表示 */}
@@ -402,34 +419,35 @@ export default function InterviewPage({
       )}
 
       {/* 入力エリア */}
-      {!shouldEnd && (
-        <div className="px-4 py-3 border-t border-gray-200 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="flex gap-2 items-end">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={handleTextareaChange}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="回答を入力...（Shift+Enterで改行）"
-              rows={1}
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
-              style={{ maxHeight: "120px" }}
-              disabled={loading}
-              aria-label="回答を入力"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim() || loading}
-              className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
-              aria-label="送信"
-            >
-              送信
-            </button>
+      {!shouldEnd && !generating && (
+        <div className="border-t border-gray-200">
+          {/* 画像プレビュー */}
+          {images.length > 0 && (
+            <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto">
+              {images.map((img, i) => (
+                <div key={i} className="relative flex-shrink-0">
+                  <img
+                    src={img}
+                    alt={`添付画像 ${i + 1}`}
+                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleImageRemove(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-700 text-white rounded-full flex items-center justify-center text-xs leading-none hover:bg-gray-900 transition-colors"
+                    aria-label={`添付画像 ${i + 1} を削除`}
+                  >
+                    &times;
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end gap-1 px-2">
+            <ImageUpload onImageAdd={handleImageAdd} disabled={loading} />
+            <div className="flex-1">
+              <VoiceInput onSend={handleSend} disabled={loading} />
+            </div>
           </div>
         </div>
       )}

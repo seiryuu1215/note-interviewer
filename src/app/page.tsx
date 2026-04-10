@@ -14,9 +14,10 @@ import {
   type GeneratedArticle,
   type UsageData,
 } from "@/lib/storage";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 export default function Home() {
-  const [title, setTitle] = useState("");
+  const [theme, setTheme] = useState("");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [articles, setArticles] = useState<GeneratedArticle[]>([]);
@@ -24,15 +25,52 @@ export default function Home() {
   const [showProfile, setShowProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileBio, setProfileBio] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const router = useRouter();
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only localStorage hydration
+  // テーマ入力欄の音声認識
+  const {
+    isListening: isThemeListening,
+    transcript: themeTranscript,
+    startListening: startThemeListening,
+    stopListening: stopThemeListening,
+    resetTranscript: resetThemeTranscript,
+    isSupported: isThemeSupported,
+    error: themeVoiceError,
+  } = useSpeechRecognition();
+
+  // プロフィールモーダルの音声認識
+  const {
+    isListening: isBioListening,
+    transcript: bioTranscript,
+    startListening: startBioListening,
+    stopListening: stopBioListening,
+    resetTranscript: resetBioTranscript,
+    isSupported: isBioSupported,
+    error: bioVoiceError,
+  } = useSpeechRecognition();
+
   useEffect(() => {
     setProfile(getProfile());
     setSessions(getSessions());
     setArticles(getArticles());
     setUsage(getUsage());
   }, []);
+
+  // テーマ音声認識のテキスト反映
+  useEffect(() => {
+    if (themeTranscript) {
+      setTheme(themeTranscript);
+    }
+  }, [themeTranscript]);
+
+  // プロフィール音声認識のテキスト反映
+  useEffect(() => {
+    if (bioTranscript) {
+      setProfileBio(bioTranscript);
+    }
+  }, [bioTranscript]);
 
   // モーダルのEscキー対応
   useEffect(() => {
@@ -44,20 +82,66 @@ export default function Home() {
     return () => document.removeEventListener("keydown", handleEsc);
   }, [showProfile]);
 
-  const startInterview = () => {
-    const id = crypto.randomUUID();
-    router.push(`/interview/${id}?title=${encodeURIComponent(title.trim())}`);
+  const analyzeAndStart = async (currentProfile: UserProfile) => {
+    setIsAnalyzing(true);
+    setAnalyzeError(null);
+
+    try {
+      const response = await fetch("/api/analyze-theme", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: theme.trim(),
+          profile: currentProfile,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("テーマの分析に失敗しました。もう一度お試しください。");
+      }
+
+      const data: unknown = await response.json();
+
+      if (
+        typeof data !== "object" ||
+        data === null ||
+        !("title" in data) ||
+        !("firstQuestion" in data) ||
+        typeof (data as Record<string, unknown>).title !== "string" ||
+        typeof (data as Record<string, unknown>).firstQuestion !== "string"
+      ) {
+        throw new Error("テーマの分析結果が不正です。もう一度お試しください。");
+      }
+
+      const { title, firstQuestion } = data as {
+        title: string;
+        firstQuestion: string;
+      };
+
+      const id = crypto.randomUUID();
+      router.push(
+        `/interview/${id}?title=${encodeURIComponent(title)}&firstQuestion=${encodeURIComponent(firstQuestion)}`
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "テーマの分析に失敗しました。もう一度お試しください。";
+      setAnalyzeError(message);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleStart = () => {
-    if (!title.trim()) return;
+    if (!theme.trim() || isAnalyzing) return;
 
     if (!profile) {
       setShowProfile(true);
       return;
     }
 
-    startInterview();
+    void analyzeAndStart(profile);
   };
 
   const handleSaveProfile = () => {
@@ -71,7 +155,8 @@ export default function Home() {
     saveProfile(newProfile);
     setProfile(newProfile);
     setShowProfile(false);
-    if (title.trim()) startInterview();
+    resetBioTranscript();
+    if (theme.trim()) void analyzeAndStart(newProfile);
   };
 
   const handleSkipProfile = () => {
@@ -85,7 +170,26 @@ export default function Home() {
     saveProfile(defaultProfile);
     setProfile(defaultProfile);
     setShowProfile(false);
-    startInterview();
+    resetBioTranscript();
+    void analyzeAndStart(defaultProfile);
+  };
+
+  const toggleThemeVoice = () => {
+    if (isThemeListening) {
+      stopThemeListening();
+    } else {
+      resetThemeTranscript();
+      startThemeListening();
+    }
+  };
+
+  const toggleBioVoice = () => {
+    if (isBioListening) {
+      stopBioListening();
+    } else {
+      resetBioTranscript();
+      startBioListening();
+    }
   };
 
   const activeSessions = sessions.filter((s) => s.status === "active");
@@ -99,9 +203,9 @@ export default function Home() {
             Note Interviewer
           </h1>
           <p className="text-gray-500 text-lg">
-            タイトルを決めるだけ。
+            話すだけで、note記事ができる。
             <br />
-            AIがインタビューして、記事を自動生成します。
+            AIがあなたにインタビューします。
           </p>
         </div>
 
@@ -153,30 +257,88 @@ export default function Home() {
           </div>
         )}
 
-        {/* タイトル入力 */}
+        {/* テーマ入力 */}
         <div className="space-y-4">
           <label
-            htmlFor="title"
+            htmlFor="theme"
             className="block text-sm font-medium text-gray-700"
           >
-            記事タイトル
+            何について書きたい？
           </label>
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleStart()}
-            placeholder="例: 25歳でフリーランスになって学んだこと"
-            className="w-full px-4 py-3 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
-            autoFocus
-          />
+          <div className="relative">
+            <input
+              id="theme"
+              type="text"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleStart()}
+              placeholder="例: 最近の転職の話、趣味のこと..."
+              className="w-full px-4 py-3 pr-12 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isAnalyzing}
+              autoFocus
+            />
+            {isThemeSupported && (
+              <button
+                type="button"
+                onClick={toggleThemeVoice}
+                disabled={isAnalyzing}
+                className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
+                  isThemeListening
+                    ? "bg-red-100 text-red-600 animate-pulse"
+                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+                aria-label={isThemeListening ? "音声入力を停止" : "音声入力を開始"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="w-5 h-5"
+                >
+                  <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
+                  <path d="M17 11a1 1 0 0 1 2 0 7 7 0 0 1-6 6.93V20h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-2.07A7 7 0 0 1 5 11a1 1 0 0 1 2 0 5 5 0 0 0 10 0Z" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {themeVoiceError && (
+            <p className="text-sm text-red-500">{themeVoiceError}</p>
+          )}
+          {analyzeError && (
+            <p className="text-sm text-red-500">{analyzeError}</p>
+          )}
           <button
             onClick={handleStart}
-            disabled={!title.trim()}
-            className="w-full py-3 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px]"
+            disabled={!theme.trim() || isAnalyzing}
+            className="w-full py-3 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] flex items-center justify-center gap-2"
           >
-            インタビューを始める
+            {isAnalyzing ? (
+              <>
+                <svg
+                  className="animate-spin h-5 w-5 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                テーマを分析中...
+              </>
+            ) : (
+              "インタビューを始める"
+            )}
           </button>
         </div>
 
@@ -240,13 +402,13 @@ export default function Home() {
               <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
                 1
               </span>
-              タイトルを入力
+              書きたいテーマを話す
             </div>
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
                 2
               </span>
-              AIの質問に答える（5〜10問）
+              AIの質問に声で答える
             </div>
             <div className="flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
@@ -277,7 +439,7 @@ export default function Home() {
               プロフィール設定
             </h2>
             <p className="text-sm text-gray-500 mb-4">
-              あなたの情報を保存して、より良いインタビューを実現します。
+              声で自己紹介してください。テキスト入力もできます。
             </p>
             <div className="space-y-4">
               <div>
@@ -304,14 +466,45 @@ export default function Home() {
                 >
                   自己紹介（任意）
                 </label>
-                <textarea
-                  id="profile-bio"
-                  value={profileBio}
-                  onChange={(e) => setProfileBio(e.target.value)}
-                  placeholder="例: フリーランスエンジニア / ダーツプロ"
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
+                <div className="relative">
+                  <textarea
+                    id="profile-bio"
+                    value={profileBio}
+                    onChange={(e) => setProfileBio(e.target.value)}
+                    placeholder="例: フリーランスエンジニア / ダーツプロ"
+                    rows={2}
+                    className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  />
+                  {isBioSupported && (
+                    <button
+                      type="button"
+                      onClick={toggleBioVoice}
+                      className={`absolute right-2 top-2 w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
+                        isBioListening
+                          ? "bg-red-100 text-red-600 animate-pulse"
+                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                      }`}
+                      aria-label={
+                        isBioListening
+                          ? "音声入力を停止"
+                          : "音声で自己紹介を入力"
+                      }
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                      >
+                        <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z" />
+                        <path d="M17 11a1 1 0 0 1 2 0 7 7 0 0 1-6 6.93V20h2a1 1 0 1 1 0 2H9a1 1 0 1 1 0-2h2v-2.07A7 7 0 0 1 5 11a1 1 0 0 1 2 0 5 5 0 0 0 10 0Z" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                {bioVoiceError && (
+                  <p className="text-sm text-red-500 mt-1">{bioVoiceError}</p>
+                )}
               </div>
             </div>
             <div className="flex gap-2 mt-6">

@@ -1,31 +1,45 @@
-import { askInterviewer, type Message } from "@/lib/anthropic";
+import { askInterviewer } from "@/lib/anthropic";
+import {
+  validateTitle,
+  validateMessages,
+  validateImages,
+  safeErrorDetail,
+} from "@/lib/validate";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { title, messages } = body as {
-      title: string;
-      messages: Message[];
-    };
-
-    if (
-      !title ||
-      !Array.isArray(messages) ||
-      messages.some((m) => !m.role || !m.content)
-    ) {
-      return Response.json(
-        { error: "title（文字列）と messages（配列）は必須です" },
-        { status: 400 }
-      );
+    const body: unknown = await request.json();
+    if (!body || typeof body !== "object") {
+      return Response.json({ error: "不正なリクエストです" }, { status: 400 });
     }
 
-    const result = await askInterviewer(title, messages);
+    const b = body as Record<string, unknown>;
+
+    const titleError = validateTitle(b.title);
+    if (titleError) {
+      return Response.json({ error: titleError }, { status: 400 });
+    }
+
+    const messagesResult = validateMessages(b.messages);
+    if (!messagesResult.valid) {
+      return Response.json({ error: messagesResult.error }, { status: 400 });
+    }
+
+    const imagesResult = validateImages(b.images);
+    if (!imagesResult.valid) {
+      return Response.json({ error: imagesResult.error }, { status: 400 });
+    }
+
+    const result = await askInterviewer(
+      b.title as string,
+      messagesResult.data,
+      imagesResult.data.length > 0 ? imagesResult.data : undefined
+    );
     return Response.json(result);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    console.error("Interview API error:", detail);
+    console.error("Interview API error:", error);
     return Response.json(
-      { error: "インタビュー処理中にエラーが発生しました", detail },
+      { error: "インタビュー処理中にエラーが発生しました", detail: safeErrorDetail(error) },
       { status: 500 }
     );
   }

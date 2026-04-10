@@ -11,6 +11,10 @@ export type UserProfile = {
 export type InterviewSession = {
   id: string;
   title: string;
+  /** ユーザーの元の入力（「最近の転職の話」など） */
+  theme?: string;
+  /** AIが提案したタイトル（ユーザー入力のtitleとは別） */
+  suggestedTitle?: string;
   messages: { role: "user" | "assistant"; content: string }[];
   status: "active" | "completed";
   createdAt: string;
@@ -22,6 +26,7 @@ export type GeneratedArticle = {
   sessionId: string;
   title: string;
   content: string;
+  images?: string[];
   createdAt: string;
 };
 

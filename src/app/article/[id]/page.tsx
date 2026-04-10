@@ -22,6 +22,7 @@ export default function ArticlePage({
       router.push("/");
       return;
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- client-only localStorage hydration
     setArticle(stored);
   }, [id, router]);
 
@@ -45,6 +46,24 @@ export default function ArticlePage({
   };
 
   if (!article) return null;
+
+  // 画像プレースホルダーを実際のbase64画像に置換（data:image/のみ許可）
+  const safeImages = (article.images ?? []).filter((img) =>
+    img.startsWith("data:image/")
+  );
+  const articleContent =
+    safeImages.length > 0
+      ? article.content.replace(
+          /!\[写真(\d+)\]\(image-\d+\)/g,
+          (_match: string, num: string) => {
+            const index = parseInt(num, 10) - 1;
+            if (index >= 0 && index < safeImages.length) {
+              return `![写真${num}](${safeImages[index]})`;
+            }
+            return _match;
+          }
+        )
+      : article.content;
 
   return (
     <div className="min-h-screen bg-white">
@@ -80,7 +99,7 @@ export default function ArticlePage({
           </h1>
           <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-li:text-gray-700">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {article.content}
+              {articleContent}
             </ReactMarkdown>
           </div>
         </article>
