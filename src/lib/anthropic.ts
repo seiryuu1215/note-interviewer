@@ -4,6 +4,7 @@ import {
   ARTICLE_GENERATOR_SYSTEM_PROMPT,
   FACT_EXTRACTOR_SYSTEM_PROMPT,
   THEME_ANALYZER_SYSTEM_PROMPT,
+  NOTE_PROFILE_ANALYZER_PROMPT,
 } from "./prompts";
 
 export const anthropicClient = new Anthropic();
@@ -255,5 +256,60 @@ export async function analyzeTheme(
   return {
     title: input,
     firstQuestion: text || "このテーマについて、まず何がきっかけで書きたいと思いましたか？",
+  };
+}
+
+// noteプロフィール分析: ユーザーのnote記事から人間性・文体を分析
+export async function analyzeNoteProfile(
+  profile: { nickname: string; profile: string; noteCount: number; followerCount: number },
+  articles: { name: string; body: string; likeCount: number }[]
+): Promise<{ analysis: string; topics: string[]; writingStyle: string }> {
+  const articleSummaries = articles
+    .map(
+      (a, i) =>
+        `記事${i + 1}: 「${a.name}」（いいね${a.likeCount}件）\n${a.body?.slice(0, 500) ?? "（本文なし）"}`
+    )
+    .join("\n\n");
+
+  const userContext = [
+    `ニックネーム: ${profile.nickname}`,
+    `プロフィール: ${profile.profile || "（未設定）"}`,
+    `記事数: ${profile.noteCount}`,
+    `フォロワー数: ${profile.followerCount}`,
+    "",
+    "## 最近の記事",
+    articleSummaries || "（記事なし）",
+  ].join("\n");
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    temperature: 0.5,
+    system: NOTE_PROFILE_ANALYZER_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: userContext,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<{ analysis: string; topics: string[]; writingStyle: string }>(text);
+  if (parsed?.analysis) {
+    return {
+      analysis: parsed.analysis,
+      topics: parsed.topics ?? [],
+      writingStyle: parsed.writingStyle ?? "",
+    };
+  }
+
+  // フォールバック
+  return {
+    analysis: text || "分析できませんでした",
+    topics: [],
+    writingStyle: "",
   };
 }

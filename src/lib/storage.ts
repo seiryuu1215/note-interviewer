@@ -3,6 +3,9 @@ export type UserProfile = {
   name: string;
   bio: string;
   facts: string[];
+  noteUsername?: string;
+  noteAnalysis?: string;
+  noteArticleCount?: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -148,7 +151,7 @@ const DEFAULT_USAGE: UsageData = {
   lastResetMonth: "",
 };
 
-export const FREE_LIMIT = 3;
+export const FREE_LIMIT = 1;
 
 export function getUsage(): UsageData {
   if (!isClient()) return { ...DEFAULT_USAGE };

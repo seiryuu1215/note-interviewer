@@ -53,6 +53,8 @@ export default function InterviewPage({
         if (profile.bio) contextParts.push(`自己紹介: ${profile.bio}`);
         if (profile.facts.length > 0)
           contextParts.push(`既知の情報: ${profile.facts.join(", ")}`);
+        if (profile.noteAnalysis)
+          contextParts.push(`【note分析】${profile.noteAnalysis}`);
       }
       return [
         { role: "user" as const, content: contextParts.join("\n") },

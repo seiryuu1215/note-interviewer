@@ -22,11 +22,22 @@ export default function Home() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [articles, setArticles] = useState<GeneratedArticle[]>([]);
   const [usage, setUsage] = useState<UsageData | null>(null);
-  const [showProfile, setShowProfile] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState<
+    "note-check" | "profile-edit" | null
+  >(null);
   const [profileName, setProfileName] = useState("");
   const [profileBio, setProfileBio] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [noteUsername, setNoteUsername] = useState("");
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [noteError, setNoteError] = useState<string | null>(null);
+  const [noteAnalysisResult, setNoteAnalysisResult] = useState<string | null>(
+    null
+  );
+  const [noteArticleCount, setNoteArticleCount] = useState<number | null>(
+    null
+  );
   const router = useRouter();
 
   // テーマ入力欄の音声認識
@@ -74,13 +85,13 @@ export default function Home() {
 
   // モーダルのEscキー対応
   useEffect(() => {
-    if (!showProfile) return;
+    if (!onboardingStep) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowProfile(false);
+      if (e.key === "Escape") setOnboardingStep(null);
     };
     document.addEventListener("keydown", handleEsc);
     return () => document.removeEventListener("keydown", handleEsc);
-  }, [showProfile]);
+  }, [onboardingStep]);
 
   const analyzeAndStart = async (currentProfile: UserProfile) => {
     setIsAnalyzing(true);
@@ -137,7 +148,7 @@ export default function Home() {
     if (!theme.trim() || isAnalyzing) return;
 
     if (!profile) {
-      setShowProfile(true);
+      setOnboardingStep("note-check");
       return;
     }
 
@@ -149,12 +160,15 @@ export default function Home() {
       name: profileName.trim() || "名無し",
       bio: profileBio.trim(),
       facts: profile?.facts ?? [],
+      noteUsername: noteUsername.trim() || profile?.noteUsername,
+      noteAnalysis: noteAnalysisResult ?? profile?.noteAnalysis,
+      noteArticleCount: noteArticleCount ?? profile?.noteArticleCount,
       createdAt: profile?.createdAt ?? new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     saveProfile(newProfile);
     setProfile(newProfile);
-    setShowProfile(false);
+    setOnboardingStep(null);
     resetBioTranscript();
     if (theme.trim()) void analyzeAndStart(newProfile);
   };
@@ -169,9 +183,70 @@ export default function Home() {
     };
     saveProfile(defaultProfile);
     setProfile(defaultProfile);
-    setShowProfile(false);
+    setOnboardingStep(null);
     resetBioTranscript();
     void analyzeAndStart(defaultProfile);
+  };
+
+  const handleNoteCheck = async () => {
+    const trimmed = noteUsername.trim().toLowerCase();
+    if (!trimmed) return;
+
+    setNoteLoading(true);
+    setNoteError(null);
+    setNoteAnalysisResult(null);
+    setNoteArticleCount(null);
+
+    try {
+      const res = await fetch("/api/note-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ urlname: trimmed }),
+      });
+
+      const data: unknown = await res.json();
+
+      if (
+        typeof data !== "object" ||
+        data === null
+      ) {
+        setNoteError("レスポンスが不正です");
+        return;
+      }
+
+      const d = data as Record<string, unknown>;
+
+      if (!d.exists) {
+        setNoteError(
+          typeof d.error === "string"
+            ? d.error
+            : "ユーザーが見つかりません"
+        );
+        return;
+      }
+
+      // プロフィール情報を自動入力
+      if (typeof d.profile === "object" && d.profile !== null) {
+        const p = d.profile as Record<string, unknown>;
+        if (typeof p.nickname === "string") setProfileName(p.nickname);
+        if (typeof p.bio === "string") setProfileBio(p.bio);
+      }
+
+      if (typeof d.analysis === "string") {
+        setNoteAnalysisResult(d.analysis);
+      }
+      if (typeof d.articleCount === "number") {
+        setNoteArticleCount(d.articleCount);
+      }
+    } catch {
+      setNoteError("noteのプロフィール取得に失敗しました");
+    } finally {
+      setNoteLoading(false);
+    }
+  };
+
+  const handleNoteSkip = () => {
+    setOnboardingStep("profile-edit");
   };
 
   const toggleThemeVoice = () => {
@@ -215,6 +290,11 @@ export default function Home() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900">{profile.name}</p>
+                {profile.noteUsername && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    note.com/{profile.noteUsername}
+                  </p>
+                )}
                 {profile.bio && (
                   <p className="text-sm text-gray-500 mt-1">{profile.bio}</p>
                 )}
@@ -240,7 +320,9 @@ export default function Home() {
                 onClick={() => {
                   setProfileName(profile.name);
                   setProfileBio(profile.bio);
-                  setShowProfile(true);
+                  setNoteUsername(profile.noteUsername ?? "");
+                  setNoteAnalysisResult(profile.noteAnalysis ?? null);
+                  setOnboardingStep("profile-edit");
                 }}
                 className="text-sm text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
@@ -420,18 +502,154 @@ export default function Home() {
         </div>
       </div>
 
-      {/* プロフィール設定モーダル */}
-      {showProfile && (
+      {/* noteアカウントチェックモーダル（ステップ1） */}
+      {onboardingStep === "note-check" && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="note-check-modal-title"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setOnboardingStep(null);
+          }}
+        >
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2
+              id="note-check-modal-title"
+              className="text-lg font-bold text-gray-900 mb-4"
+            >
+              noteアカウントをお持ちですか？
+            </h2>
+            <p className="text-sm text-gray-500 mb-4">
+              noteのユーザー名を入力すると、あなたの文体を分析してより良い記事を生成できます。
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label
+                  htmlFor="note-username"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
+                  noteのユーザー名
+                </label>
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                      note.com/
+                    </span>
+                    <input
+                      id="note-username"
+                      type="text"
+                      value={noteUsername}
+                      onChange={(e) => {
+                        setNoteUsername(e.target.value);
+                        setNoteError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && void handleNoteCheck()}
+                      placeholder="username"
+                      className="w-full pl-[5.5rem] pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={noteLoading}
+                      autoFocus
+                    />
+                  </div>
+                  <button
+                    onClick={() => void handleNoteCheck()}
+                    disabled={!noteUsername.trim() || noteLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] min-w-[60px] flex items-center justify-center"
+                  >
+                    {noteLoading ? (
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    ) : (
+                      "確認"
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {noteLoading && (
+                <p className="text-sm text-blue-600">分析中...</p>
+              )}
+
+              {noteError && (
+                <p className="text-sm text-red-500">{noteError}</p>
+              )}
+
+              {noteAnalysisResult && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm font-medium text-green-800 mb-1">
+                    {noteArticleCount !== null
+                      ? `記事${noteArticleCount}件を確認しました！`
+                      : "プロフィールを確認しました！"}
+                  </p>
+                  <p className="text-sm text-green-700">
+                    あなたの文体を分析しました
+                  </p>
+                  <p className="text-xs text-green-600 mt-2 line-clamp-3">
+                    {noteAnalysisResult}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2 mt-6">
+              {noteAnalysisResult ? (
+                <button
+                  onClick={() => setOnboardingStep("profile-edit")}
+                  className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 min-h-[44px]"
+                >
+                  次へ：プロフィール確認
+                </button>
+              ) : (
+                <button
+                  onClick={handleNoteSkip}
+                  className="w-full py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 min-h-[44px]"
+                >
+                  noteアカウントを持っていない
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setOnboardingStep("profile-edit");
+                }}
+                className="w-full py-1 text-sm text-gray-400 hover:text-gray-600"
+              >
+                スキップ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* プロフィール設定モーダル（ステップ2） */}
+      {onboardingStep === "profile-edit" && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
           role="dialog"
           aria-modal="true"
           aria-labelledby="profile-modal-title"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowProfile(false);
+            if (e.target === e.currentTarget) setOnboardingStep(null);
           }}
         >
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2
               id="profile-modal-title"
               className="text-lg font-bold text-gray-900 mb-4"
@@ -439,7 +657,9 @@ export default function Home() {
               プロフィール設定
             </h2>
             <p className="text-sm text-gray-500 mb-4">
-              声で自己紹介してください。テキスト入力もできます。
+              {noteAnalysisResult
+                ? "noteから取得した情報を確認・修正してください。"
+                : "声で自己紹介してください。テキスト入力もできます。"}
             </p>
             <div className="space-y-4">
               <div>
@@ -506,6 +726,18 @@ export default function Home() {
                   <p className="text-sm text-red-500 mt-1">{bioVoiceError}</p>
                 )}
               </div>
+
+              {/* note分析結果の表示 */}
+              {noteAnalysisResult && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs font-medium text-blue-800 mb-1">
+                    noteの文体分析
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    {noteAnalysisResult}
+                  </p>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-6">
               <button
