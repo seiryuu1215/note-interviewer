@@ -78,20 +78,20 @@ export default function QuestionCard({ question, isLoading }: QuestionCardProps)
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[200px] mx-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50">
+      <div className="flex items-center justify-center min-h-[200px] mx-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)]">
         <div className="text-center px-6 py-8">
           <div className="inline-flex gap-1.5 mb-3">
-            <span className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce" />
+            <span className="w-2.5 h-2.5 bg-[var(--accent)] rounded-full animate-bounce" />
             <span
-              className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
+              className="w-2.5 h-2.5 bg-[var(--accent)] rounded-full animate-bounce"
               style={{ animationDelay: "0.15s" }}
             />
             <span
-              className="w-2.5 h-2.5 bg-blue-400 rounded-full animate-bounce"
+              className="w-2.5 h-2.5 bg-[var(--accent)] rounded-full animate-bounce"
               style={{ animationDelay: "0.3s" }}
             />
           </div>
-          <p className="text-gray-500 text-sm" role="status">
+          <p className="text-[var(--muted)] text-sm" role="status">
             考え中...
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function QuestionCard({ question, isLoading }: QuestionCardProps)
   }
 
   return (
-    <div className="mx-4 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm animate-fade-in">
+    <div className="mx-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--card-border)] shadow-sm animate-fade-in">
       {/* 音声コントロール（対応ブラウザのみ表示） */}
       {isSupported && (
         <div className="flex items-center justify-end gap-2 px-4 pt-3">
@@ -108,7 +108,7 @@ export default function QuestionCard({ question, isLoading }: QuestionCardProps)
           <button
             type="button"
             onClick={handleSpeakerClick}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-white/60 transition-colors"
+            className="p-1.5 rounded-lg text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--input-bg)] transition-colors"
             aria-label={isSpeaking ? "読み上げを停止" : "質問を読み上げる"}
             title={isSpeaking ? "読み上げを停止" : "質問を読み上げる"}
           >
@@ -128,7 +128,7 @@ export default function QuestionCard({ question, isLoading }: QuestionCardProps)
             title={voiceEnabled ? "自動読み上げON" : "自動読み上げOFF"}
             onClick={toggleVoiceEnabled}
             className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-              voiceEnabled ? "bg-blue-500" : "bg-gray-300"
+              voiceEnabled ? "bg-[var(--accent)]" : "bg-[var(--input-border)]"
             }`}
           >
             <span
@@ -141,7 +141,7 @@ export default function QuestionCard({ question, isLoading }: QuestionCardProps)
       )}
 
       <div className="px-6 py-8 sm:px-8 sm:py-10 text-center">
-        <p className="text-xl sm:text-2xl leading-relaxed text-gray-800 font-medium">
+        <p className="text-xl sm:text-2xl leading-relaxed text-[var(--foreground)] font-medium">
           {question}
         </p>
       </div>

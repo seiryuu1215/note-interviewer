@@ -79,14 +79,14 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
     <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
       {/* 音声認識エラー */}
       {speechError && (
-        <p className="text-xs text-red-500 text-center mb-2" role="alert">
+        <p className="text-xs text-[var(--error)] text-center mb-2" role="alert">
           {speechError}
         </p>
       )}
 
       {/* 音声認識のトランスクリプト表示 */}
       {!showTextInput && transcript && (
-        <div className="mb-3 p-3 bg-gray-50 rounded-xl text-sm text-gray-700 min-h-[44px]">
+        <div className="mb-3 p-3 bg-[var(--card-bg)] rounded-xl text-sm text-[var(--foreground)] min-h-[44px] border border-[var(--card-border)]">
           {transcript}
         </div>
       )}
@@ -97,7 +97,7 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
           <button
             onClick={handleSendVoice}
             disabled={disabled}
-            className="px-6 py-2 bg-blue-600 text-white rounded-full text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-40 min-h-[44px]"
+            className="px-6 py-2 bg-[var(--accent)] text-white rounded-full text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-40 min-h-[44px]"
           >
             この内容で送信
           </button>
@@ -114,7 +114,7 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
             onKeyDown={handleKeyDown}
             placeholder="回答を入力...（Shift+Enterで改行）"
             rows={1}
-            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+            className="flex-1 px-4 py-2.5 border border-[var(--input-border)] rounded-xl resize-none bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent placeholder:text-[var(--muted)]"
             style={{ maxHeight: "120px" }}
             disabled={disabled}
             aria-label="回答を入力"
@@ -122,7 +122,7 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
           <button
             onClick={handleSendText}
             disabled={!textValue.trim() || disabled}
-            className="px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
+            className="px-4 py-2.5 bg-[var(--accent)] text-white rounded-xl hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0 min-h-[44px]"
             aria-label="送信"
           >
             送信
@@ -136,17 +136,17 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
             disabled={disabled}
             className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-colors ${
               isListening
-                ? "bg-red-500 text-white"
-                : "bg-blue-600 text-white hover:bg-blue-700"
+                ? "bg-[var(--error)] text-white"
+                : "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]"
             } disabled:opacity-40 disabled:cursor-not-allowed`}
             aria-label={isListening ? "録音を停止" : "タップして話す"}
           >
             {/* 録音中のパルスアニメーション */}
             {isListening && (
               <>
-                <span className="absolute inset-0 rounded-full bg-red-400 animate-mic-pulse opacity-50" />
+                <span className="absolute inset-0 rounded-full bg-[var(--error)] animate-mic-pulse opacity-50" />
                 <span
-                  className="absolute inset-0 rounded-full bg-red-400 animate-mic-pulse opacity-30"
+                  className="absolute inset-0 rounded-full bg-[var(--error)] animate-mic-pulse opacity-30"
                   style={{ animationDelay: "0.5s" }}
                 />
               </>
@@ -173,7 +173,7 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
           </button>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-[var(--muted)]">
             {isListening ? "聞いています..." : "タップして話す"}
           </p>
         </div>
@@ -188,7 +188,7 @@ export default function VoiceInput({ onSend, disabled }: VoiceInputProps) {
             }
             setShowTextInput((prev) => !prev);
           }}
-          className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+          className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] underline transition-colors"
         >
           {showTextInput
             ? isSupported

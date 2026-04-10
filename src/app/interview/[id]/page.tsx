@@ -420,18 +420,18 @@ export default function InterviewPage({
   return (
     <div className="flex flex-col h-dvh max-w-2xl mx-auto">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--card-border)]">
         <button
           onClick={() => {
             abortRef.current?.abort();
             router.push("/");
           }}
-          className="text-gray-500 hover:text-gray-700 text-sm min-h-[44px] min-w-[44px] flex items-center"
+          className="text-[var(--muted)] hover:text-[var(--foreground)] text-sm min-h-[44px] min-w-[44px] flex items-center"
         >
           &larr; 戻る
         </button>
         <h2
-          className="text-sm font-medium text-gray-700 truncate max-w-[60%]"
+          className="text-sm font-medium text-[var(--foreground)] truncate max-w-[60%]"
           title={session.title}
         >
           {session.title}
@@ -439,7 +439,7 @@ export default function InterviewPage({
         {!shouldEnd ? (
           <button
             onClick={() => setShouldEnd(true)}
-            className="text-xs text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-end"
+            className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] min-h-[44px] min-w-[44px] flex items-center justify-end"
           >
             終了する
           </button>
@@ -467,29 +467,29 @@ export default function InterviewPage({
       {/* エラー表示 */}
       {error && (
         <div
-          className="px-4 py-2 bg-red-50 border-t border-red-200"
+          className="px-4 py-2 bg-[var(--error)]/10 border-t border-[var(--error)]/30"
           role="alert"
         >
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-[var(--error)]">{error}</p>
         </div>
       )}
 
       {/* 記事生成ボタン */}
       {shouldEnd && !generating && (
-        <div className="px-4 py-3 bg-green-50 border-t border-green-200 pb-[env(safe-area-inset-bottom)]">
-          <p className="text-sm text-green-700 mb-3">
+        <div className="px-4 py-3 bg-[var(--success)]/10 border-t border-[var(--success)]/30 pb-[env(safe-area-inset-bottom)]">
+          <p className="text-sm text-[var(--success)] mb-3">
             インタビュー完了！記事を生成しますか？
           </p>
           <div className="flex gap-2">
             <button
               onClick={handleGenerate}
-              className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              className="flex-1 bg-[var(--success)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-colors min-h-[44px]"
             >
               1本の記事を生成
             </button>
             <button
               onClick={handleGenerateMulti}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[44px]"
+              className="flex-1 bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors min-h-[44px]"
             >
               複数記事に分割（3〜5本）
             </button>
@@ -500,13 +500,13 @@ export default function InterviewPage({
       {/* 生成中のローディング */}
       {generating && (
         <div
-          className="px-4 py-4 bg-green-50 border-t border-green-200 pb-[env(safe-area-inset-bottom)]"
+          className="px-4 py-4 bg-[var(--success)]/10 border-t border-[var(--success)]/30 pb-[env(safe-area-inset-bottom)]"
           role="status"
           aria-label="記事を生成中"
         >
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm text-green-700">
+            <div className="w-5 h-5 border-2 border-[var(--success)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-sm text-[var(--success)]">
               {generatingMode === "multi"
                 ? "複数の記事を生成しています...（1分ほどかかります）"
                 : "記事を生成しています...（30秒ほどかかります）"}
@@ -517,7 +517,7 @@ export default function InterviewPage({
 
       {/* 入力エリア */}
       {!shouldEnd && !generating && (
-        <div className="border-t border-gray-200">
+        <div className="border-t border-[var(--card-border)]">
           {/* 画像プレビュー */}
           {images.length > 0 && (
             <div className="flex gap-2 px-4 pt-3 pb-1 overflow-x-auto">
@@ -526,12 +526,12 @@ export default function InterviewPage({
                   <img
                     src={img}
                     alt={`添付画像 ${i + 1}`}
-                    className="w-16 h-16 object-cover rounded-lg border border-gray-200"
+                    className="w-16 h-16 object-cover rounded-lg border border-[var(--card-border)]"
                   />
                   <button
                     type="button"
                     onClick={() => handleImageRemove(i)}
-                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-700 text-white rounded-full flex items-center justify-center text-xs leading-none hover:bg-gray-900 transition-colors"
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-[var(--foreground)] text-[var(--background)] rounded-full flex items-center justify-center text-xs leading-none hover:opacity-80 transition-colors"
                     aria-label={`添付画像 ${i + 1} を削除`}
                   >
                     &times;

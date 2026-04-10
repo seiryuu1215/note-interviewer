@@ -105,7 +105,7 @@ export default function ImageUpload({ onImageAdd, disabled }: ImageUploadProps) 
         type="button"
         onClick={handleClick}
         disabled={disabled}
-        className="flex items-center justify-center w-10 h-10 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center w-10 h-10 rounded-full text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--card-bg)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         aria-label="画像を添付"
         title="画像を添付"
       >

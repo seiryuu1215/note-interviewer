@@ -37,7 +37,7 @@ export default function FlowSummary({ messages }: FlowSummaryProps) {
     <div className="mx-4">
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors py-2"
+        className="flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors py-2"
         aria-expanded={isOpen}
       >
         <span
@@ -55,12 +55,12 @@ export default function FlowSummary({ messages }: FlowSummaryProps) {
           {pairs.map((pair, i) => (
             <div
               key={i}
-              className="text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2"
+              className="text-xs text-[var(--muted)] bg-[var(--card-bg)] rounded-lg px-3 py-2 border border-[var(--card-border)]"
             >
-              <p className="font-medium text-gray-700">
+              <p className="font-medium text-[var(--foreground)]">
                 Q{i + 1}. {truncate(pair.question, 30)}
               </p>
-              <p className="mt-0.5 text-gray-500">
+              <p className="mt-0.5 text-[var(--muted)]">
                 → {truncate(pair.answer, 30)}
               </p>
             </div>

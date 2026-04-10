@@ -41,17 +41,17 @@ type WastedPotential = {
 type ReviewResult = Record<string, unknown>;
 
 function getScoreColor(score: number): string {
-  if (score <= 30) return "text-red-600";
-  if (score <= 60) return "text-yellow-600";
-  if (score <= 80) return "text-green-600";
-  return "text-blue-600";
+  if (score <= 30) return "text-[var(--error)]";
+  if (score <= 60) return "text-[var(--warning)]";
+  if (score <= 80) return "text-[var(--success)]";
+  return "text-[var(--accent)]";
 }
 
 function getScoreBarColor(score: number): string {
-  if (score <= 30) return "bg-red-500";
-  if (score <= 60) return "bg-yellow-500";
-  if (score <= 80) return "bg-green-500";
-  return "bg-blue-500";
+  if (score <= 30) return "bg-[var(--error)]";
+  if (score <= 60) return "bg-[var(--warning)]";
+  if (score <= 80) return "bg-[var(--success)]";
+  return "bg-[var(--accent)]";
 }
 
 function getScoreLabel(score: number): string {
@@ -138,13 +138,13 @@ export default function ReviewPage() {
     result && typeof result.score === "number" ? result.score : null;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-[env(safe-area-inset-bottom)]">
+    <div className="min-h-screen bg-[var(--background)] pb-[env(safe-area-inset-bottom)]">
       {/* ヘッダー */}
-      <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b border-gray-200">
+      <header className="sticky top-0 z-10 bg-[var(--background)]/80 backdrop-blur-sm border-b border-[var(--card-border)]">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <button
             onClick={() => router.push("/")}
-            className="text-gray-600 hover:text-gray-900 min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-[var(--muted)] hover:text-[var(--foreground)] min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="ホームに戻る"
           >
             <svg
@@ -161,7 +161,7 @@ export default function ReviewPage() {
             </svg>
             <span className="text-sm ml-1">ホーム</span>
           </button>
-          <h1 className="text-lg font-bold text-gray-900">記事を添削する</h1>
+          <h1 className="text-lg font-bold text-[var(--foreground)]">記事を添削する</h1>
           <div className="w-[44px]" />
         </div>
       </header>
@@ -169,14 +169,14 @@ export default function ReviewPage() {
       <main className="max-w-2xl mx-auto px-4 py-6 space-y-6">
         {/* 使用量 */}
         {usage && (
-          <div className="text-center text-sm text-gray-500">
+          <div className="text-center text-sm text-[var(--muted)]">
             今月の添削: {usage.monthlyReviews} / {FREE_REVIEW_LIMIT}（無料枠）
           </div>
         )}
 
         {/* トーン選択 */}
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">
+          <p className="text-sm font-medium text-[var(--foreground)] mb-3">
             フィードバックのトーンを選択
           </p>
           <div className="grid grid-cols-3 gap-2">
@@ -184,8 +184,8 @@ export default function ReviewPage() {
               onClick={() => setTone("gentle")}
               className={`p-3 rounded-xl border-2 transition-all text-center min-h-[48px] ${
                 tone === "gentle"
-                  ? "border-green-400 bg-green-50 text-green-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  ? "border-[var(--success)] bg-[var(--success)]/10 text-[var(--success)]"
+                  : "border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--muted)] hover:border-[var(--input-border)]"
               }`}
             >
               <span className="block text-lg" role="img" aria-label="やさしい">
@@ -197,8 +197,8 @@ export default function ReviewPage() {
               onClick={() => setTone("normal")}
               className={`p-3 rounded-xl border-2 transition-all text-center min-h-[48px] ${
                 tone === "normal"
-                  ? "border-blue-400 bg-blue-50 text-blue-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  ? "border-[var(--accent)] bg-[var(--accent)]/10 text-[var(--accent)]"
+                  : "border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--muted)] hover:border-[var(--input-border)]"
               }`}
             >
               <span className="block text-lg" role="img" aria-label="ふつう">
@@ -210,8 +210,8 @@ export default function ReviewPage() {
               onClick={() => setTone("harsh")}
               className={`p-3 rounded-xl border-2 transition-all text-center min-h-[48px] ${
                 tone === "harsh"
-                  ? "border-red-400 bg-red-50 text-red-700"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                  ? "border-[var(--error)] bg-[var(--error)]/10 text-[var(--error)]"
+                  : "border-[var(--card-border)] bg-[var(--card-bg)] text-[var(--muted)] hover:border-[var(--input-border)]"
               }`}
             >
               <span className="block text-lg" role="img" aria-label="辛口">
@@ -226,7 +226,7 @@ export default function ReviewPage() {
         <div>
           <label
             htmlFor="article-content"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-[var(--foreground)] mb-2"
           >
             添削する記事
           </label>
@@ -236,19 +236,19 @@ export default function ReviewPage() {
             onChange={(e) => setContent(e.target.value)}
             placeholder="記事をここにペースト..."
             rows={12}
-            className="w-full px-4 py-3 text-base border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-3 text-base border border-[var(--input-border)] rounded-xl bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent placeholder:text-[var(--muted)] resize-y disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ minHeight: "300px" }}
             disabled={isLoading}
           />
-          <p className="text-xs text-gray-400 mt-1 text-right">
+          <p className="text-xs text-[var(--muted)] mt-1 text-right">
             {content.length.toLocaleString()} / 10,000文字
           </p>
         </div>
 
         {/* エラー */}
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-700">{error}</p>
+          <div className="p-3 bg-[var(--error)]/10 border border-[var(--error)]/30 rounded-lg">
+            <p className="text-sm text-[var(--error)]">{error}</p>
           </div>
         )}
 
@@ -256,7 +256,7 @@ export default function ReviewPage() {
         <button
           onClick={() => void handleReview()}
           disabled={!content.trim() || isLoading || content.length > 10000}
-          className="w-full py-3 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] flex items-center justify-center gap-2"
+          className="w-full py-3 bg-[var(--accent)] text-white text-lg font-medium rounded-xl hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] flex items-center justify-center gap-2"
         >
           {isLoading ? (
             <>
@@ -290,10 +290,10 @@ export default function ReviewPage() {
         {/* ローディングスケルトン */}
         {isLoading && (
           <div className="space-y-4 animate-pulse">
-            <div className="h-20 bg-gray-200 rounded-xl" />
-            <div className="h-32 bg-gray-200 rounded-xl" />
-            <div className="h-24 bg-gray-200 rounded-xl" />
-            <div className="h-40 bg-gray-200 rounded-xl" />
+            <div className="h-20 bg-[var(--card-bg)] rounded-xl" />
+            <div className="h-32 bg-[var(--card-bg)] rounded-xl" />
+            <div className="h-24 bg-[var(--card-bg)] rounded-xl" />
+            <div className="h-40 bg-[var(--card-bg)] rounded-xl" />
           </div>
         )}
 
@@ -301,15 +301,15 @@ export default function ReviewPage() {
         {result && score !== null && (
           <div className="space-y-5 animate-fade-in">
             {/* スコア */}
-            <div className="bg-white p-6 rounded-xl border border-gray-200 text-center">
-              <p className="text-sm text-gray-500 mb-2">総合スコア</p>
+            <div className="bg-[var(--card-bg)] p-6 rounded-xl border border-[var(--card-border)] text-center">
+              <p className="text-sm text-[var(--muted)] mb-2">総合スコア</p>
               <div className="flex items-center justify-center gap-3">
                 <span
                   className={`text-5xl font-bold ${getScoreColor(score)}`}
                 >
                   {score}
                 </span>
-                <span className="text-2xl text-gray-400">/100</span>
+                <span className="text-2xl text-[var(--muted)]">/100</span>
               </div>
               <p
                 className={`text-sm font-medium mt-2 ${getScoreColor(score)}`}
@@ -317,7 +317,7 @@ export default function ReviewPage() {
                 {getScoreLabel(score)}
               </p>
               {/* スコアバー */}
-              <div className="mt-4 w-full bg-gray-200 rounded-full h-2.5">
+              <div className="mt-4 w-full bg-[var(--input-bg)] rounded-full h-2.5">
                 <div
                   className={`h-2.5 rounded-full transition-all duration-700 ${getScoreBarColor(score)}`}
                   style={{ width: `${Math.min(score, 100)}%` }}
@@ -353,13 +353,12 @@ function GentleResult({ result }: { result: ReviewResult }) {
 
   return (
     <>
-      {/* 良い点 */}
       {good.length > 0 && (
         <ResultSection title="良い点" icon="check-circle" color="green">
           <ul className="space-y-2">
             {good.map((item, i) => (
-              <li key={i} className="flex gap-2 text-sm text-gray-700">
-                <span className="text-green-500 shrink-0">・</span>
+              <li key={i} className="flex gap-2 text-sm text-[var(--foreground)]">
+                <span className="text-[var(--success)] shrink-0">・</span>
                 {item}
               </li>
             ))}
@@ -367,16 +366,15 @@ function GentleResult({ result }: { result: ReviewResult }) {
         </ResultSection>
       )}
 
-      {/* 改善提案 */}
       {improvements.length > 0 && (
         <ResultSection title="改善提案" icon="light-bulb" color="yellow">
           <div className="space-y-4">
             {improvements.map((item, i) => (
               <div key={i} className="text-sm">
-                <p className="font-medium text-gray-900">{item.point}</p>
-                <p className="text-gray-600 mt-1">{item.suggestion}</p>
+                <p className="font-medium text-[var(--foreground)]">{item.point}</p>
+                <p className="text-[var(--muted)] mt-1">{item.suggestion}</p>
                 {item.example && (
-                  <p className="mt-1 px-3 py-2 bg-yellow-50 rounded-lg text-gray-700 border-l-2 border-yellow-400">
+                  <p className="mt-1 px-3 py-2 bg-[var(--warning)]/10 rounded-lg text-[var(--foreground)] border-l-2 border-[var(--warning)]">
                     {item.example}
                   </p>
                 )}
@@ -386,19 +384,17 @@ function GentleResult({ result }: { result: ReviewResult }) {
         </ResultSection>
       )}
 
-      {/* リライト例 */}
       {rewrite && (
         <ResultSection title="リライト例" icon="pencil" color="blue">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50 p-4 rounded-lg border-l-2 border-blue-400">
+          <div className="text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--accent)]/10 p-4 rounded-lg border-l-2 border-[var(--accent)]">
             {rewrite}
           </div>
         </ResultSection>
       )}
 
-      {/* 総合コメント */}
       {summary && (
         <ResultSection title="総合コメント" icon="chat" color="gray">
-          <p className="text-sm text-gray-700">{summary}</p>
+          <p className="text-sm text-[var(--foreground)]">{summary}</p>
         </ResultSection>
       )}
     </>
@@ -422,13 +418,12 @@ function NormalResult({ result }: { result: ReviewResult }) {
 
   return (
     <>
-      {/* 良い点 */}
       {good.length > 0 && (
         <ResultSection title="良い点" icon="check-circle" color="green">
           <ul className="space-y-2">
             {good.map((item, i) => (
-              <li key={i} className="flex gap-2 text-sm text-gray-700">
-                <span className="text-green-500 shrink-0">・</span>
+              <li key={i} className="flex gap-2 text-sm text-[var(--foreground)]">
+                <span className="text-[var(--success)] shrink-0">・</span>
                 {item}
               </li>
             ))}
@@ -436,21 +431,20 @@ function NormalResult({ result }: { result: ReviewResult }) {
         </ResultSection>
       )}
 
-      {/* 改善必須 */}
       {improvements.length > 0 && (
         <ResultSection title="改善必須" icon="exclamation" color="orange">
           <div className="space-y-4">
             {improvements.map((item, i) => (
               <div key={i} className="text-sm">
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-gray-900">{item.point}</p>
+                  <p className="font-medium text-[var(--foreground)]">{item.point}</p>
                   {item.priority && (
                     <PriorityBadge priority={item.priority} />
                   )}
                 </div>
-                <p className="text-gray-600 mt-1">{item.suggestion}</p>
+                <p className="text-[var(--muted)] mt-1">{item.suggestion}</p>
                 {item.example && (
-                  <p className="mt-1 px-3 py-2 bg-orange-50 rounded-lg text-gray-700 border-l-2 border-orange-400">
+                  <p className="mt-1 px-3 py-2 bg-[var(--warning)]/10 rounded-lg text-[var(--foreground)] border-l-2 border-[var(--warning)]">
                     {item.example}
                   </p>
                 )}
@@ -460,26 +454,23 @@ function NormalResult({ result }: { result: ReviewResult }) {
         </ResultSection>
       )}
 
-      {/* リライト例 */}
       {rewrite && (
         <ResultSection title="リライト例" icon="pencil" color="blue">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50 p-4 rounded-lg border-l-2 border-blue-400">
+          <div className="text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--accent)]/10 p-4 rounded-lg border-l-2 border-[var(--accent)]">
             {rewrite}
           </div>
         </ResultSection>
       )}
 
-      {/* 読者視点 */}
       {readerPerspective && (
         <ResultSection title="読者視点" icon="eye" color="purple">
-          <p className="text-sm text-gray-700">{readerPerspective}</p>
+          <p className="text-sm text-[var(--foreground)]">{readerPerspective}</p>
         </ResultSection>
       )}
 
-      {/* 総合コメント */}
       {summary && (
         <ResultSection title="総合コメント" icon="chat" color="gray">
-          <p className="text-sm text-gray-700">{summary}</p>
+          <p className="text-sm text-[var(--foreground)]">{summary}</p>
         </ResultSection>
       )}
     </>
@@ -507,27 +498,25 @@ function HarshResult({ result }: { result: ReviewResult }) {
 
   return (
     <>
-      {/* 正直な感想 */}
       {honestReaction && (
         <ResultSection title="正直な感想" icon="fire" color="red">
-          <p className="text-sm text-gray-700 font-medium">
+          <p className="text-sm text-[var(--foreground)] font-medium">
             {honestReaction}
           </p>
         </ResultSection>
       )}
 
-      {/* 致命的な問題 */}
       {criticalIssues.length > 0 && (
         <ResultSection title="致命的な問題" icon="x-circle" color="red">
           <div className="space-y-4">
             {criticalIssues.map((item, i) => (
               <div key={i} className="text-sm">
-                <p className="font-medium text-red-800">{item.issue}</p>
-                <p className="text-gray-600 mt-1">
+                <p className="font-medium text-[var(--error)]">{item.issue}</p>
+                <p className="text-[var(--muted)] mt-1">
                   <span className="font-medium">理由: </span>
                   {item.why}
                 </p>
-                <p className="mt-1 px-3 py-2 bg-red-50 rounded-lg text-gray-700 border-l-2 border-red-400">
+                <p className="mt-1 px-3 py-2 bg-[var(--error)]/10 rounded-lg text-[var(--foreground)] border-l-2 border-[var(--error)]">
                   <span className="font-medium">修正方法: </span>
                   {item.fix}
                 </p>
@@ -537,47 +526,42 @@ function HarshResult({ result }: { result: ReviewResult }) {
         </ResultSection>
       )}
 
-      {/* もったいない点 */}
       {wastedPotential.length > 0 && (
         <ResultSection title="もったいない点" icon="exclamation" color="orange">
           <div className="space-y-3">
             {wastedPotential.map((item, i) => (
               <div key={i} className="text-sm">
-                <p className="font-medium text-gray-900">{item.point}</p>
-                <p className="text-gray-600 mt-1">{item.suggestion}</p>
+                <p className="font-medium text-[var(--foreground)]">{item.point}</p>
+                <p className="text-[var(--muted)] mt-1">{item.suggestion}</p>
               </div>
             ))}
           </div>
         </ResultSection>
       )}
 
-      {/* 唯一の救い */}
       {saving && (
         <ResultSection title="唯一の救い" icon="star" color="green">
-          <p className="text-sm text-gray-700">{saving}</p>
+          <p className="text-sm text-[var(--foreground)]">{saving}</p>
         </ResultSection>
       )}
 
-      {/* リライト例 */}
       {rewrite && (
         <ResultSection title="本気のリライト" icon="pencil" color="blue">
-          <div className="text-sm text-gray-700 whitespace-pre-wrap bg-blue-50 p-4 rounded-lg border-l-2 border-blue-400">
+          <div className="text-sm text-[var(--foreground)] whitespace-pre-wrap bg-[var(--accent)]/10 p-4 rounded-lg border-l-2 border-[var(--accent)]">
             {rewrite}
           </div>
         </ResultSection>
       )}
 
-      {/* このままだと... */}
       {prediction && (
         <ResultSection title="このままだと..." icon="warning" color="yellow">
-          <p className="text-sm text-gray-700">{prediction}</p>
+          <p className="text-sm text-[var(--foreground)]">{prediction}</p>
         </ResultSection>
       )}
 
-      {/* 辛口総評 */}
       {summary && (
         <ResultSection title="辛口総評" icon="chat" color="gray">
-          <p className="text-sm text-gray-700">{summary}</p>
+          <p className="text-sm text-[var(--foreground)]">{summary}</p>
         </ResultSection>
       )}
     </>
@@ -600,23 +584,23 @@ type IconName =
   | "warning";
 
 const colorMap: Record<SectionColor, string> = {
-  green: "border-green-200 bg-green-50",
-  yellow: "border-yellow-200 bg-yellow-50",
-  orange: "border-orange-200 bg-orange-50",
-  red: "border-red-200 bg-red-50",
-  blue: "border-blue-200 bg-blue-50",
-  purple: "border-purple-200 bg-purple-50",
-  gray: "border-gray-200 bg-gray-50",
+  green: "border-[var(--success)]/30 bg-[var(--success)]/5",
+  yellow: "border-[var(--warning)]/30 bg-[var(--warning)]/5",
+  orange: "border-[var(--warning)]/30 bg-[var(--warning)]/5",
+  red: "border-[var(--error)]/30 bg-[var(--error)]/5",
+  blue: "border-[var(--accent)]/30 bg-[var(--accent)]/5",
+  purple: "border-[var(--accent)]/30 bg-[var(--accent)]/5",
+  gray: "border-[var(--card-border)] bg-[var(--card-bg)]",
 };
 
 const titleColorMap: Record<SectionColor, string> = {
-  green: "text-green-800",
-  yellow: "text-yellow-800",
-  orange: "text-orange-800",
-  red: "text-red-800",
-  blue: "text-blue-800",
-  purple: "text-purple-800",
-  gray: "text-gray-800",
+  green: "text-[var(--success)]",
+  yellow: "text-[var(--warning)]",
+  orange: "text-[var(--warning)]",
+  red: "text-[var(--error)]",
+  blue: "text-[var(--accent)]",
+  purple: "text-[var(--accent)]",
+  gray: "text-[var(--foreground)]",
 };
 
 const iconMap: Record<IconName, string> = {
@@ -669,9 +653,9 @@ function ResultSection({
 
 function PriorityBadge({ priority }: { priority: string }) {
   const styles: Record<string, string> = {
-    high: "bg-red-100 text-red-700",
-    medium: "bg-yellow-100 text-yellow-700",
-    low: "bg-gray-100 text-gray-600",
+    high: "bg-[var(--error)]/15 text-[var(--error)]",
+    medium: "bg-[var(--warning)]/15 text-[var(--warning)]",
+    low: "bg-[var(--card-bg)] text-[var(--muted)]",
   };
   const labels: Record<string, string> = {
     high: "高",

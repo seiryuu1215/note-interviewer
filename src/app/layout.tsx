@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
+import StatusBar from "@/components/StatusBar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -26,7 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ja" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">
+        <StatusBar />
         <main className="flex-1 flex flex-col">{children}</main>
       </body>
     </html>

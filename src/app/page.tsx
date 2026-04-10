@@ -274,10 +274,10 @@ export default function Home() {
       <div className="w-full max-w-lg">
         {/* ヘッダー */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl font-bold text-[var(--foreground)] mb-3">
             Note Interviewer
           </h1>
-          <p className="text-gray-500 text-lg">
+          <p className="text-[var(--muted)] text-lg">
             話すだけで、note記事ができる。
             <br />
             AIがあなたにインタビューします。
@@ -286,30 +286,30 @@ export default function Home() {
 
         {/* プロフィール表示 */}
         {profile && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+          <div className="mb-6 p-4 bg-[var(--card-bg)] rounded-xl border border-[var(--card-border)]">
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-900">{profile.name}</p>
+                <p className="font-medium text-[var(--foreground)]">{profile.name}</p>
                 {profile.noteUsername && (
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-[var(--muted)] mt-0.5">
                     note.com/{profile.noteUsername}
                   </p>
                 )}
                 {profile.bio && (
-                  <p className="text-sm text-gray-500 mt-1">{profile.bio}</p>
+                  <p className="text-sm text-[var(--muted)] mt-1">{profile.bio}</p>
                 )}
                 {profile.facts.length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-2">
                     {profile.facts.slice(0, 5).map((fact, i) => (
                       <span
                         key={i}
-                        className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full"
+                        className="text-xs bg-[var(--accent)]/10 text-[var(--accent)] px-2 py-0.5 rounded-full"
                       >
                         {fact}
                       </span>
                     ))}
                     {profile.facts.length > 5 && (
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-[var(--muted)]">
                         +{profile.facts.length - 5}
                       </span>
                     )}
@@ -324,7 +324,7 @@ export default function Home() {
                   setNoteAnalysisResult(profile.noteAnalysis ?? null);
                   setOnboardingStep("profile-edit");
                 }}
-                className="text-sm text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="text-sm text-[var(--muted)] hover:text-[var(--foreground)] min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
                 編集
               </button>
@@ -334,7 +334,7 @@ export default function Home() {
 
         {/* 使用量 */}
         {usage && (
-          <div className="mb-6 text-center text-sm text-gray-500">
+          <div className="mb-6 text-center text-sm text-[var(--muted)]">
             今月の記事生成: {usage.monthlyArticles} / {FREE_LIMIT}（無料枠）
           </div>
         )}
@@ -343,7 +343,7 @@ export default function Home() {
         <div className="space-y-4">
           <label
             htmlFor="theme"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-[var(--foreground)]"
           >
             何について書きたい？
           </label>
@@ -355,7 +355,7 @@ export default function Home() {
               onChange={(e) => setTheme(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleStart()}
               placeholder="例: 最近の転職の話、趣味のこと..."
-              className="w-full px-4 py-3 pr-12 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 pr-12 text-lg border border-[var(--input-border)] rounded-xl bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] focus:border-transparent placeholder:text-[var(--muted)] disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isAnalyzing}
               autoFocus
             />
@@ -366,8 +366,8 @@ export default function Home() {
                 disabled={isAnalyzing}
                 className={`absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${
                   isThemeListening
-                    ? "bg-red-100 text-red-600 animate-pulse"
-                    : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    ? "bg-[var(--error)]/20 text-[var(--error)] animate-pulse"
+                    : "bg-[var(--card-bg)] text-[var(--muted)] hover:bg-[var(--input-bg)]"
                 } disabled:opacity-40 disabled:cursor-not-allowed`}
                 aria-label={isThemeListening ? "音声入力を停止" : "音声入力を開始"}
               >
@@ -384,15 +384,15 @@ export default function Home() {
             )}
           </div>
           {themeVoiceError && (
-            <p className="text-sm text-red-500">{themeVoiceError}</p>
+            <p className="text-sm text-[var(--error)]">{themeVoiceError}</p>
           )}
           {analyzeError && (
-            <p className="text-sm text-red-500">{analyzeError}</p>
+            <p className="text-sm text-[var(--error)]">{analyzeError}</p>
           )}
           <button
             onClick={handleStart}
             disabled={!theme.trim() || isAnalyzing}
-            className="w-full py-3 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] flex items-center justify-center gap-2"
+            className="w-full py-3 bg-[var(--accent)] text-white text-lg font-medium rounded-xl hover:bg-[var(--accent-hover)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed min-h-[48px] flex items-center justify-center gap-2"
           >
             {isAnalyzing ? (
               <>
@@ -428,10 +428,10 @@ export default function Home() {
         <div className="mt-6">
           <button
             onClick={() => router.push("/review")}
-            className="w-full p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl hover:border-orange-300 transition-colors text-left min-h-[48px]"
+            className="w-full p-4 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-xl hover:border-[var(--accent)] transition-colors text-left min-h-[48px]"
           >
-            <p className="font-medium text-gray-900">記事を添削する</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="font-medium text-[var(--foreground)]">記事を添削する</p>
+            <p className="text-sm text-[var(--muted)] mt-1">
               既存の記事をAIが辛口〜やさしく添削します
             </p>
           </button>
@@ -440,7 +440,7 @@ export default function Home() {
         {/* 過去の記事 */}
         {articles.length > 0 && (
           <div className="mt-10">
-            <h2 className="text-sm font-medium text-gray-700 mb-3">
+            <h2 className="text-sm font-medium text-[var(--foreground)] mb-3">
               生成した記事
             </h2>
             <div className="space-y-2">
@@ -448,13 +448,13 @@ export default function Home() {
                 <button
                   key={article.id}
                   onClick={() => router.push(`/article/${article.id}`)}
-                  className="w-full text-left p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors min-h-[48px]"
+                  className="w-full text-left p-3 bg-[var(--card-bg)] border border-[var(--card-border)] rounded-lg hover:border-[var(--accent)] transition-colors min-h-[48px]"
                   title={article.title}
                 >
-                  <p className="font-medium text-gray-900 text-sm truncate">
+                  <p className="font-medium text-[var(--foreground)] text-sm truncate">
                     {article.title}
                   </p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--muted)] mt-1">
                     {new Date(article.createdAt).toLocaleDateString("ja-JP")}
                   </p>
                 </button>
@@ -466,7 +466,7 @@ export default function Home() {
         {/* 進行中のインタビュー */}
         {activeSessions.length > 0 && (
           <div className="mt-6">
-            <h2 className="text-sm font-medium text-gray-700 mb-3">
+            <h2 className="text-sm font-medium text-[var(--foreground)] mb-3">
               進行中のインタビュー
             </h2>
             <div className="space-y-2">
@@ -474,13 +474,13 @@ export default function Home() {
                 <button
                   key={session.id}
                   onClick={() => router.push(`/interview/${session.id}`)}
-                  className="w-full text-left p-3 bg-yellow-50 border border-yellow-200 rounded-lg hover:border-yellow-300 transition-colors min-h-[48px]"
+                  className="w-full text-left p-3 bg-[var(--warning)]/10 border border-[var(--warning)]/30 rounded-lg hover:border-[var(--warning)] transition-colors min-h-[48px]"
                   title={session.title}
                 >
-                  <p className="font-medium text-gray-900 text-sm truncate">
+                  <p className="font-medium text-[var(--foreground)] text-sm truncate">
                     {session.title}
                   </p>
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-[var(--muted)] mt-1">
                     {session.messages.filter((m) => m.role === "user").length}
                     問回答済み
                   </p>
@@ -492,21 +492,21 @@ export default function Home() {
 
         {/* 使い方 */}
         <div className="mt-10 text-center">
-          <div className="inline-flex flex-col gap-3 text-sm text-gray-500">
+          <div className="inline-flex flex-col gap-3 text-sm text-[var(--muted)]">
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
+              <span className="w-6 h-6 rounded-full bg-[var(--card-bg)] text-[var(--foreground)] flex items-center justify-center text-xs font-bold border border-[var(--card-border)]">
                 1
               </span>
               書きたいテーマを話す
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
+              <span className="w-6 h-6 rounded-full bg-[var(--card-bg)] text-[var(--foreground)] flex items-center justify-center text-xs font-bold border border-[var(--card-border)]">
                 2
               </span>
               AIの質問に声で答える
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold">
+              <span className="w-6 h-6 rounded-full bg-[var(--card-bg)] text-[var(--foreground)] flex items-center justify-center text-xs font-bold border border-[var(--card-border)]">
                 3
               </span>
               記事が自動生成される
@@ -526,27 +526,27 @@ export default function Home() {
             if (e.target === e.currentTarget) setOnboardingStep(null);
           }}
         >
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+          <div className="bg-[var(--card-bg)] rounded-2xl p-6 w-full max-w-md border border-[var(--card-border)]">
             <h2
               id="note-check-modal-title"
-              className="text-lg font-bold text-gray-900 mb-4"
+              className="text-lg font-bold text-[var(--foreground)] mb-4"
             >
               noteアカウントをお持ちですか？
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-[var(--muted)] mb-4">
               noteのユーザー名を入力すると、あなたの文体を分析してより良い記事を生成できます。
             </p>
             <div className="space-y-4">
               <div>
                 <label
                   htmlFor="note-username"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-1"
                 >
                   noteのユーザー名
                 </label>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)] text-sm">
                       note.com/
                     </span>
                     <input
@@ -559,7 +559,7 @@ export default function Home() {
                       }}
                       onKeyDown={(e) => e.key === "Enter" && void handleNoteCheck()}
                       placeholder="username"
-                      className="w-full pl-[5.5rem] pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full pl-[5.5rem] pr-3 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] placeholder:text-[var(--muted)]"
                       disabled={noteLoading}
                       autoFocus
                     />
@@ -567,7 +567,7 @@ export default function Home() {
                   <button
                     onClick={() => void handleNoteCheck()}
                     disabled={!noteUsername.trim() || noteLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] min-w-[60px] flex items-center justify-center"
+                    className="px-4 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed min-h-[44px] min-w-[60px] flex items-center justify-center"
                   >
                     {noteLoading ? (
                       <svg
@@ -598,24 +598,24 @@ export default function Home() {
               </div>
 
               {noteLoading && (
-                <p className="text-sm text-blue-600">分析中...</p>
+                <p className="text-sm text-[var(--accent)]">分析中...</p>
               )}
 
               {noteError && (
-                <p className="text-sm text-red-500">{noteError}</p>
+                <p className="text-sm text-[var(--error)]">{noteError}</p>
               )}
 
               {noteAnalysisResult && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm font-medium text-green-800 mb-1">
+                <div className="p-3 bg-[var(--success)]/10 border border-[var(--success)]/30 rounded-lg">
+                  <p className="text-sm font-medium text-[var(--success)] mb-1">
                     {noteArticleCount !== null
                       ? `記事${noteArticleCount}件を確認しました！`
                       : "プロフィールを確認しました！"}
                   </p>
-                  <p className="text-sm text-green-700">
+                  <p className="text-sm text-[var(--success)]">
                     あなたの文体を分析しました
                   </p>
-                  <p className="text-xs text-green-600 mt-2 line-clamp-3">
+                  <p className="text-xs text-[var(--muted)] mt-2 line-clamp-3">
                     {noteAnalysisResult}
                   </p>
                 </div>
@@ -626,14 +626,14 @@ export default function Home() {
               {noteAnalysisResult ? (
                 <button
                   onClick={() => setOnboardingStep("profile-edit")}
-                  className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 min-h-[44px]"
+                  className="w-full py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] min-h-[44px]"
                 >
                   次へ：プロフィール確認
                 </button>
               ) : (
                 <button
                   onClick={handleNoteSkip}
-                  className="w-full py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 min-h-[44px]"
+                  className="w-full py-2 text-[var(--foreground)] border border-[var(--input-border)] rounded-lg hover:bg-[var(--input-bg)] min-h-[44px]"
                 >
                   noteアカウントを持っていない
                 </button>
@@ -642,7 +642,7 @@ export default function Home() {
                 onClick={() => {
                   setOnboardingStep("profile-edit");
                 }}
-                className="w-full py-1 text-sm text-gray-400 hover:text-gray-600"
+                className="w-full py-1 text-sm text-[var(--muted)] hover:text-[var(--foreground)]"
               >
                 スキップ
               </button>
@@ -662,14 +662,14 @@ export default function Home() {
             if (e.target === e.currentTarget) setOnboardingStep(null);
           }}
         >
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--card-bg)] rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto border border-[var(--card-border)]">
             <h2
               id="profile-modal-title"
-              className="text-lg font-bold text-gray-900 mb-4"
+              className="text-lg font-bold text-[var(--foreground)] mb-4"
             >
               プロフィール設定
             </h2>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-[var(--muted)] mb-4">
               {noteAnalysisResult
                 ? "noteから取得した情報を確認・修正してください。"
                 : "声で自己紹介してください。テキスト入力もできます。"}
@@ -678,7 +678,7 @@ export default function Home() {
               <div>
                 <label
                   htmlFor="profile-name"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-1"
                 >
                   名前・ニックネーム
                 </label>
@@ -688,14 +688,14 @@ export default function Home() {
                   value={profileName}
                   onChange={(e) => setProfileName(e.target.value)}
                   placeholder="例: せいりゅう"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] placeholder:text-[var(--muted)]"
                   autoFocus
                 />
               </div>
               <div>
                 <label
                   htmlFor="profile-bio"
-                  className="block text-sm font-medium text-gray-700 mb-1"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-1"
                 >
                   自己紹介（任意）
                 </label>
@@ -706,7 +706,7 @@ export default function Home() {
                     onChange={(e) => setProfileBio(e.target.value)}
                     placeholder="例: フリーランスエンジニア / ダーツプロ"
                     rows={2}
-                    className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    className="w-full px-3 py-2 pr-12 border border-[var(--input-border)] rounded-lg bg-[var(--input-bg)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] resize-none placeholder:text-[var(--muted)]"
                   />
                   {isBioSupported && (
                     <button
@@ -714,8 +714,8 @@ export default function Home() {
                       onClick={toggleBioVoice}
                       className={`absolute right-2 top-2 w-9 h-9 flex items-center justify-center rounded-full transition-colors ${
                         isBioListening
-                          ? "bg-red-100 text-red-600 animate-pulse"
-                          : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          ? "bg-[var(--error)]/20 text-[var(--error)] animate-pulse"
+                          : "bg-[var(--card-bg)] text-[var(--muted)] hover:bg-[var(--input-bg)]"
                       }`}
                       aria-label={
                         isBioListening
@@ -736,17 +736,17 @@ export default function Home() {
                   )}
                 </div>
                 {bioVoiceError && (
-                  <p className="text-sm text-red-500 mt-1">{bioVoiceError}</p>
+                  <p className="text-sm text-[var(--error)] mt-1">{bioVoiceError}</p>
                 )}
               </div>
 
               {/* note分析結果の表示 */}
               {noteAnalysisResult && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-xs font-medium text-blue-800 mb-1">
+                <div className="p-3 bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-lg">
+                  <p className="text-xs font-medium text-[var(--accent)] mb-1">
                     noteの文体分析
                   </p>
-                  <p className="text-xs text-blue-700">
+                  <p className="text-xs text-[var(--muted)]">
                     {noteAnalysisResult}
                   </p>
                 </div>
@@ -755,13 +755,13 @@ export default function Home() {
             <div className="flex gap-2 mt-6">
               <button
                 onClick={handleSkipProfile}
-                className="flex-1 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 min-h-[44px]"
+                className="flex-1 py-2 text-[var(--foreground)] border border-[var(--input-border)] rounded-lg hover:bg-[var(--input-bg)] min-h-[44px]"
               >
                 スキップ
               </button>
               <button
                 onClick={handleSaveProfile}
-                className="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 min-h-[44px]"
+                className="flex-1 py-2 bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] min-h-[44px]"
               >
                 保存して始める
               </button>

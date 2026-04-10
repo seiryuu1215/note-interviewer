@@ -119,26 +119,26 @@ export default function ArticlePage({
       : article.content;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[var(--background)]">
       <div className="max-w-2xl mx-auto px-4 py-8 pb-[env(safe-area-inset-bottom)]">
         {/* ヘッダー */}
         <div className="flex items-center justify-between mb-8 flex-wrap gap-2">
           <button
             onClick={() => router.push("/")}
-            className="text-gray-500 hover:text-gray-700 text-sm min-h-[44px] flex items-center"
+            className="text-[var(--muted)] hover:text-[var(--foreground)] text-sm min-h-[44px] flex items-center"
           >
             &larr; ホームに戻る
           </button>
           <div className="flex gap-2">
             <button
               onClick={handleCopy}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              className="bg-[var(--success)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-colors min-h-[44px]"
             >
               {copied ? "コピーしました！" : "Markdownをコピー"}
             </button>
             <button
               onClick={() => router.push("/")}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-300 transition-colors min-h-[44px]"
+              className="bg-[var(--card-bg)] text-[var(--foreground)] px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--input-bg)] transition-colors min-h-[44px] border border-[var(--card-border)]"
             >
               新しい記事
             </button>
@@ -147,7 +147,7 @@ export default function ArticlePage({
 
         {/* 記事本文 */}
         <article>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+          <h1 className="text-2xl font-bold text-[var(--foreground)] mb-4">
             {article.title}
           </h1>
 
@@ -156,11 +156,11 @@ export default function ArticlePage({
             <button
               onClick={handleOptimizeTitles}
               disabled={optimizing}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="text-sm text-[var(--accent)] hover:text-[var(--accent-hover)] font-medium min-h-[44px] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {optimizing ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
                   タイトルを最適化中...
                 </>
               ) : (
@@ -170,7 +170,7 @@ export default function ArticlePage({
 
             {/* エラー表示 */}
             {optimizeError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
+              <p className="mt-2 text-sm text-[var(--error)]" role="alert">
                 {optimizeError}
               </p>
             )}
@@ -178,29 +178,29 @@ export default function ArticlePage({
             {/* タイトル候補一覧 */}
             {titleSuggestions.length > 0 && (
               <div className="mt-4 space-y-3">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-[var(--foreground)]">
                   タイトル候補（クリックで変更）:
                 </p>
                 {titleSuggestions.map((suggestion, i) => (
                   <button
                     key={i}
                     onClick={() => handleSelectTitle(suggestion.title)}
-                    className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                    className="w-full text-left p-4 border border-[var(--card-border)] rounded-lg hover:border-[var(--accent)] hover:bg-[var(--accent)]/5 transition-colors"
                   >
-                    <p className="font-medium text-gray-900 mb-1">
+                    <p className="font-medium text-[var(--foreground)] mb-1">
                       {suggestion.title}
                     </p>
-                    <p className="text-xs text-blue-600 mb-1">
+                    <p className="text-xs text-[var(--accent)] mb-1">
                       {suggestion.approach}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-[var(--muted)]">
                       {suggestion.reason}
                     </p>
                   </button>
                 ))}
                 <button
                   onClick={() => setTitleSuggestions([])}
-                  className="text-xs text-gray-500 hover:text-gray-700 min-h-[44px]"
+                  className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] min-h-[44px]"
                 >
                   候補を閉じる
                 </button>
@@ -208,7 +208,7 @@ export default function ArticlePage({
             )}
           </div>
 
-          <div className="prose prose-gray max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-strong:text-gray-900 prose-li:text-gray-700">
+          <div className="prose prose-gray max-w-none prose-headings:text-[var(--foreground)] prose-p:text-[var(--foreground)] prose-p:leading-relaxed prose-strong:text-[var(--foreground)] prose-li:text-[var(--foreground)]">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {articleContent}
             </ReactMarkdown>
@@ -216,13 +216,13 @@ export default function ArticlePage({
         </article>
 
         {/* フッター */}
-        <div className="mt-12 pt-6 border-t border-gray-200 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="mt-12 pt-6 border-t border-[var(--card-border)] text-center">
+          <p className="text-sm text-[var(--muted)]">
             Note Interviewer で生成された記事
           </p>
           <button
             onClick={handleCopy}
-            className="mt-3 text-blue-600 hover:text-blue-700 text-sm font-medium min-h-[44px]"
+            className="mt-3 text-[var(--accent)] hover:text-[var(--accent-hover)] text-sm font-medium min-h-[44px]"
           >
             {copied ? "コピーしました！" : "Markdownをコピーしてnoteに貼り付け"}
           </button>

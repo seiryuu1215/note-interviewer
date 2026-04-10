@@ -10,9 +10,9 @@ export default function ProgressBar({ current, total }: ProgressBarProps) {
 
   return (
     <div className="px-4 py-2 flex items-center gap-3">
-      <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-[var(--input-bg)] rounded-full overflow-hidden">
         <div
-          className="h-full bg-blue-500 rounded-full transition-all duration-500 ease-out"
+          className="h-full bg-[var(--accent)] rounded-full transition-all duration-500 ease-out"
           style={{ width: `${percentage}%` }}
           role="progressbar"
           aria-valuenow={current}
@@ -20,7 +20,7 @@ export default function ProgressBar({ current, total }: ProgressBarProps) {
           aria-valuemax={total}
         />
       </div>
-      <span className="text-xs text-gray-500 whitespace-nowrap">
+      <span className="text-xs text-[var(--muted)] whitespace-nowrap">
         {current} / {total}問目
       </span>
     </div>
