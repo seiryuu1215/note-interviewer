@@ -38,6 +38,7 @@ export default function InterviewPage({
   const [error, setError] = useState<string | null>(null);
   const [shouldEnd, setShouldEnd] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generatingMode, setGeneratingMode] = useState<"single" | "multi" | null>(null);
   const [images, setImages] = useState<string[]>([]);
   const [allImages, setAllImages] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);
@@ -241,6 +242,7 @@ export default function InterviewPage({
     }
 
     setGenerating(true);
+    setGeneratingMode("single");
     setError(null);
 
     try {
@@ -313,6 +315,91 @@ export default function InterviewPage({
       if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "記事生成に失敗しました");
       setGenerating(false);
+      setGeneratingMode(null);
+    } finally {
+      abortRef.current = null;
+    }
+  };
+
+  const handleGenerateMulti = async () => {
+    if (!session) return;
+
+    if (!canGenerateArticle()) {
+      setError("今月の無料枠を使い切りました。");
+      return;
+    }
+
+    setGenerating(true);
+    setGeneratingMode("multi");
+    setError(null);
+
+    try {
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const [multiRes, factsRes] = await Promise.all([
+        fetch("/api/generate-multi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: session.title,
+            messages: session.messages,
+            ...(allImages.length > 0 ? { imageCount: allImages.length } : {}),
+          }),
+          signal: controller.signal,
+        }),
+        fetch("/api/extract-facts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: session.messages }),
+          signal: controller.signal,
+        }),
+      ]);
+
+      if (!multiRes.ok) {
+        const err = await multiRes.json();
+        throw new Error(err.detail || err.error || "複数記事生成に失敗しました");
+      }
+
+      const result = await multiRes.json();
+
+      if (!result.articles || result.articles.length === 0) {
+        throw new Error("記事の生成に失敗しました。もう一度お試しください。");
+      }
+
+      // 各記事を保存
+      for (const article of result.articles as { title: string; content: string; theme: string; order: number }[]) {
+        const articleId = crypto.randomUUID();
+        saveArticle({
+          id: articleId,
+          sessionId: session.id,
+          title: article.title,
+          content: article.content,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // 事実抽出（失敗しても記事生成は続行）
+      try {
+        const facts = await factsRes.json();
+        if (facts.facts?.length > 0) {
+          updateProfileFacts(facts.facts);
+        }
+      } catch {
+        // 事実抽出の失敗は無視
+      }
+
+      // セッション完了
+      saveSession({ ...session, status: "completed" });
+      incrementUsage("article");
+      incrementUsage("interview");
+
+      router.push("/");
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "記事生成に失敗しました");
+      setGenerating(false);
+      setGeneratingMode(null);
     } finally {
       abortRef.current = null;
     }
@@ -390,15 +477,21 @@ export default function InterviewPage({
       {/* 記事生成ボタン */}
       {shouldEnd && !generating && (
         <div className="px-4 py-3 bg-green-50 border-t border-green-200 pb-[env(safe-area-inset-bottom)]">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-green-700">
-              インタビュー完了！記事を生成しますか？
-            </p>
+          <p className="text-sm text-green-700 mb-3">
+            インタビュー完了！記事を生成しますか？
+          </p>
+          <div className="flex gap-2">
             <button
               onClick={handleGenerate}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors min-h-[44px]"
             >
-              記事を生成
+              1本の記事を生成
+            </button>
+            <button
+              onClick={handleGenerateMulti}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors min-h-[44px]"
+            >
+              複数記事に分割（3〜5本）
             </button>
           </div>
         </div>
@@ -414,7 +507,9 @@ export default function InterviewPage({
           <div className="flex items-center gap-3">
             <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
             <p className="text-sm text-green-700">
-              記事を生成しています...（30秒ほどかかります）
+              {generatingMode === "multi"
+                ? "複数の記事を生成しています...（1分ほどかかります）"
+                : "記事を生成しています...（30秒ほどかかります）"}
             </p>
           </div>
         </div>

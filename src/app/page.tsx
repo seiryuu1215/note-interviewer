@@ -424,6 +424,19 @@ export default function Home() {
           </button>
         </div>
 
+        {/* 添削モード */}
+        <div className="mt-6">
+          <button
+            onClick={() => router.push("/review")}
+            className="w-full p-4 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-xl hover:border-orange-300 transition-colors text-left min-h-[48px]"
+          >
+            <p className="font-medium text-gray-900">記事を添削する</p>
+            <p className="text-sm text-gray-500 mt-1">
+              既存の記事をAIが辛口〜やさしく添削します
+            </p>
+          </button>
+        </div>
+
         {/* 過去の記事 */}
         {articles.length > 0 && (
           <div className="mt-10">

@@ -83,6 +83,16 @@ export function validateImages(
   return { valid: true, data: images };
 }
 
+export function validateContent(content: unknown): string | null {
+  if (typeof content !== "string" || !content.trim()) {
+    return "contentは必須の文字列です";
+  }
+  if (content.length > MAX_CONTENT_LENGTH) {
+    return `contentは最大${MAX_CONTENT_LENGTH}文字までです`;
+  }
+  return null;
+}
+
 /** エラーレスポンスから内部情報を除外する */
 export function safeErrorDetail(error: unknown): string {
   if (error instanceof Error) {

@@ -3,8 +3,13 @@ import {
   INTERVIEWER_SYSTEM_PROMPT,
   ARTICLE_GENERATOR_SYSTEM_PROMPT,
   FACT_EXTRACTOR_SYSTEM_PROMPT,
+  TITLE_OPTIMIZER_SYSTEM_PROMPT,
+  MULTI_ARTICLE_SYSTEM_PROMPT,
   THEME_ANALYZER_SYSTEM_PROMPT,
   NOTE_PROFILE_ANALYZER_PROMPT,
+  REVIEW_SYSTEM_PROMPT_GENTLE,
+  REVIEW_SYSTEM_PROMPT_NORMAL,
+  REVIEW_SYSTEM_PROMPT_HARSH,
 } from "./prompts";
 
 export const anthropicClient = new Anthropic();
@@ -257,6 +262,134 @@ export async function analyzeTheme(
     title: input,
     firstQuestion: text || "このテーマについて、まず何がきっかけで書きたいと思いましたか？",
   };
+}
+
+// タイトル最適化: 記事本文からクリック率の高いタイトル候補を生成
+export type TitleSuggestion = {
+  title: string;
+  approach: string;
+  reason: string;
+};
+
+export async function optimizeTitles(
+  content: string,
+  originalTitle: string
+): Promise<{ titles: TitleSuggestion[] }> {
+  const truncatedContent = content.slice(0, 2000);
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    temperature: 0.8,
+    system: TITLE_OPTIMIZER_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `元のタイトル：「${originalTitle}」\n\n記事本文：\n${truncatedContent}`,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<{ titles: TitleSuggestion[] }>(text);
+  if (parsed?.titles && Array.isArray(parsed.titles)) return parsed;
+
+  return { titles: [] };
+}
+
+// 複数記事生成: 1つのインタビューからテーマ別に3〜5本の記事を生成
+export type MultiArticle = {
+  title: string;
+  content: string;
+  theme: string;
+  order: number;
+};
+
+export async function generateMultipleArticles(
+  title: string,
+  messages: Message[],
+  imageCount?: number
+): Promise<{ articles: MultiArticle[] }> {
+  const interviewLog = messages
+    .map(
+      (m) =>
+        `${m.role === "user" ? "回答者" : "インタビュアー"}: ${m.content}`
+    )
+    .join("\n\n");
+
+  const imageInstruction =
+    imageCount && imageCount > 0
+      ? `\n\nユーザーが画像を${imageCount}枚提供しています。適切な記事に画像プレースホルダーを振り分けてください。`
+      : "";
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 8192,
+    temperature: 0.7,
+    system: MULTI_ARTICLE_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: `元の記事テーマ：「${title}」\n\n以下のインタビュー記録から、テーマ別に複数の記事を生成してください：\n\n${interviewLog}${imageInstruction}`,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<{ articles: MultiArticle[] }>(text);
+  if (parsed?.articles && Array.isArray(parsed.articles)) return parsed;
+
+  return { articles: [] };
+}
+
+// 添削モード: 記事をレビューしてフィードバックを返す
+export type ReviewTone = "gentle" | "normal" | "harsh";
+
+const REVIEW_PROMPTS: Record<ReviewTone, string> = {
+  gentle: REVIEW_SYSTEM_PROMPT_GENTLE,
+  normal: REVIEW_SYSTEM_PROMPT_NORMAL,
+  harsh: REVIEW_SYSTEM_PROMPT_HARSH,
+};
+
+export async function reviewArticle(
+  content: string,
+  tone: ReviewTone,
+  profile?: { name?: string; noteAnalysis?: string }
+): Promise<Record<string, unknown>> {
+  let systemPrompt = REVIEW_PROMPTS[tone];
+
+  if (profile && (profile.name || profile.noteAnalysis)) {
+    const profileLines: string[] = [];
+    if (profile.name) profileLines.push(`著者名: ${profile.name}`);
+    if (profile.noteAnalysis) profileLines.push(`文体分析: ${profile.noteAnalysis}`);
+    systemPrompt += `\n\n## 著者情報\n${profileLines.join("\n")}`;
+  }
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    temperature: 0.7,
+    system: systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: `以下の記事を添削してください：\n\n${content}`,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<Record<string, unknown>>(text);
+  if (parsed && typeof parsed.score === "number") return parsed;
+
+  // フォールバック: パース失敗時
+  return { score: 0, summary: text || "添削結果を取得できませんでした", error: true };
 }
 
 // noteプロフィール分析: ユーザーのnote記事から人間性・文体を分析

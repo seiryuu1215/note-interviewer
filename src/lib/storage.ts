@@ -141,6 +141,8 @@ export type UsageData = {
   totalInterviews: number;
   totalArticles: number;
   monthlyArticles: number;
+  totalReviews: number;
+  monthlyReviews: number;
   lastResetMonth: string;
 };
 
@@ -148,10 +150,13 @@ const DEFAULT_USAGE: UsageData = {
   totalInterviews: 0,
   totalArticles: 0,
   monthlyArticles: 0,
+  totalReviews: 0,
+  monthlyReviews: 0,
   lastResetMonth: "",
 };
 
 export const FREE_LIMIT = 1;
+export const FREE_REVIEW_LIMIT = 1;
 
 export function getUsage(): UsageData {
   if (!isClient()) return { ...DEFAULT_USAGE };
@@ -163,8 +168,13 @@ export function getUsage(): UsageData {
   const currentMonth = new Date().toISOString().slice(0, 7);
   if (usage.lastResetMonth !== currentMonth) {
     usage.monthlyArticles = 0;
+    usage.monthlyReviews = 0;
     usage.lastResetMonth = currentMonth;
   }
+
+  // 既存データにreviewフィールドがない場合の互換性対応
+  if (typeof usage.totalReviews !== "number") usage.totalReviews = 0;
+  if (typeof usage.monthlyReviews !== "number") usage.monthlyReviews = 0;
 
   return usage;
 }
@@ -173,15 +183,22 @@ export function canGenerateArticle(): boolean {
   return getUsage().monthlyArticles < FREE_LIMIT;
 }
 
-export function incrementUsage(type: "interview" | "article"): void {
+export function canReview(): boolean {
+  return getUsage().monthlyReviews < FREE_REVIEW_LIMIT;
+}
+
+export function incrementUsage(type: "interview" | "article" | "review"): void {
   if (!isClient()) return;
   const usage = getUsage();
 
   if (type === "interview") {
     usage.totalInterviews++;
-  } else {
+  } else if (type === "article") {
     usage.totalArticles++;
     usage.monthlyArticles++;
+  } else {
+    usage.totalReviews++;
+    usage.monthlyReviews++;
   }
 
   safeSetItem(KEYS.usage, JSON.stringify(usage));
