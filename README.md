@@ -1,26 +1,36 @@
 # Note Interviewer
 
-AIインタビューで note 記事を自動生成するWebアプリ。
+話すだけで note 記事ができる AI インタビューアプリ。
 
-タイトルを入力するだけで、AIがインタビュアーとして質問を重ね、あなたの言葉から記事を自動生成します。
+テーマをふわっと伝えるだけで、AIがインタビュアーとして深掘り質問を繰り返し、あなたの言葉から記事を自動生成します。
 
 ## 特徴
 
-- **対話型の記事作成** — チャット形式でAIの質問に答えるだけ
+- **音声入力対応** — マイクボタンをタップして話すだけ。テキスト入力にも対応
+- **テーマ自動分析** — 「最近の転職の話」程度の入力からAIがタイトルと質問を自動生成
+- **AI読み上げ** — 質問を音声で読み上げ（ON/OFF切替可能）
+- **画像アップロード** — 写真を添付するとAIが認識して質問に活用、記事にも埋め込み
 - **プロフィール蓄積** — 使うほどあなたを理解し、質問の精度が向上
 - **note向け最適化** — 口語体・見出し多め・2000〜3000字の読みやすい記事
-- **Markdownコピー** — 生成した記事をワンクリックでnoteに貼り付け
 - **セッション保存** — 中断しても続きから再開可能
-- **月3記事無料** — 収益化基盤搭載（認証・決済は後続フェーズ）
+- **月3記事無料** — 収益化基盤搭載
 
 ## フロー
 
 ```
-1. タイトルを入力
-2. AIインタビュアーの質問に答える（5〜10問）
-3. AIが自動的に記事を生成
-4. Markdownをコピーしてnoteに投稿
+1. 書きたいテーマを話す or 入力する
+2. AIがテーマを分析してタイトルを提案
+3. AIインタビュアーの質問に声で答える（5〜10問）
+4. AIが自動的に記事を生成
+5. Markdownをコピーしてnoteに投稿
 ```
+
+## UI
+
+- **録音ブース型** — 常に「今の1問」だけ大きく表示
+- **マイクボタンが主役** — テキスト入力はサブ動線
+- **これまでの流れ** — 過去のQ&Aを折りたたみパネルで要約表示
+- **プログレスバー** — 何問目か一目でわかる
 
 ## 技術スタック
 
@@ -29,7 +39,9 @@ AIインタビューで note 記事を自動生成するWebアプリ。
 | フロント | Next.js 16 + React 19 + TypeScript 5 |
 | スタイル | Tailwind CSS 4 |
 | AI | Anthropic API (Claude Sonnet 4.5) |
-| テスト | Vitest + @testing-library/react |
+| 音声認識 | Web Speech API（ブラウザネイティブ、追加コスト¥0） |
+| 音声読み上げ | Web Speech Synthesis（ブラウザネイティブ、追加コスト¥0） |
+| テスト | Vitest + @testing-library/react（76テスト） |
 | デプロイ | Vercel |
 
 ## セットアップ
@@ -58,63 +70,67 @@ npm run dev
 ```
 src/
 ├── app/
-│   ├── page.tsx                    # タイトル入力 + ダッシュボード
-│   ├── interview/[id]/page.tsx     # チャット形式インタビュー
-│   ├── article/[id]/page.tsx       # 記事プレビュー + コピー
+│   ├── page.tsx                    # テーマ入力 + 音声対応 + ダッシュボード
+│   ├── interview/[id]/page.tsx     # 録音ブース型インタビュー
+│   ├── article/[id]/page.tsx       # 記事プレビュー（画像対応）
 │   └── api/
-│       ├── interview/route.ts      # インタビュー応答 API
+│       ├── analyze-theme/route.ts  # テーマ分析 API
+│       ├── interview/route.ts      # インタビュー応答 API（画像対応）
 │       ├── generate/route.ts       # 記事生成 API
 │       └── extract-facts/route.ts  # プロフィール事実抽出 API
-├── components/
-│   └── ChatBubble.tsx              # チャットバブル（memo最適化）
-└── lib/
-    ├── anthropic.ts                # AI呼び出し + JSONパーサー
-    └── storage.ts                  # localStorage管理（プロフィール/セッション/記事/使用量）
+├── components/interview/
+│   ├── QuestionCard.tsx            # AI質問の大型表示（読み上げ付き）
+│   ├── ProgressBar.tsx             # 質問進捗バー
+│   ├── FlowSummary.tsx             # 過去Q&A要約パネル
+│   ├── VoiceInput.tsx              # 音声/テキスト入力（マイク主動線）
+│   └── ImageUpload.tsx             # 画像アップロード（リサイズ対応）
+├── hooks/
+│   ├── useSpeechRecognition.ts     # 音声認識フック
+│   └── useSpeechSynthesis.ts       # 音声読み上げフック
+├── lib/
+│   ├── anthropic.ts                # AI呼び出し（Vision API対応）
+│   ├── prompts.ts                  # プロンプト定義
+│   ├── storage.ts                  # localStorage管理
+│   └── validate.ts                 # APIリクエストバリデーション
+└── types/
+    └── speech.d.ts                 # Web Speech API 型定義
 ```
 
-## SubAgent構成
+## 運用コスト
 
-```
-ユーザー要望
-  → pm-agent（要件整理・タスク分解）
-  → implement-agent（実装）
-  → test-agent（テスト）
-  → review-agent（レビュー）
-  → diary-agent（日記生成）
-```
+| 項目 | 自分用（月10記事） | SaaS 1,000人 |
+|---|---|---|
+| Claude API | ¥120〜360 | ¥74,000 |
+| 音声認識/読み上げ | ¥0 | ¥0 |
+| Vercel | ¥0（Hobby） | ¥3,000（Pro） |
+| **合計** | **¥120〜360** | **¥77,000** |
 
 ## 収益化ロードマップ
 
-### Phase 1: MVP（現在）
-- [x] インタビュー → 記事生成の一本道フロー
+### Phase 1: コア体験（完了）
+- [x] テーマ入力 → AIインタビュー → 記事生成
+- [x] 音声入力 / テキスト入力
+- [x] AI質問読み上げ
+- [x] 画像アップロード / 記事埋め込み
+- [x] テーマ自動分析
 - [x] プロフィール蓄積
-- [x] 月3記事の無料枠（クライアントサイド）
+- [x] 月3記事の無料枠
 - [x] セッション永続化
+- [x] APIバリデーション / セキュリティ対策
 
-### Phase 2: 認証 + 使用量管理
-- [ ] Google OAuth認証（NextAuth.js）
+### Phase 2: 認証 + DB
+- [ ] Google OAuth認証
 - [ ] サーバーサイドの使用量管理
-- [ ] ユーザーダッシュボード
 - [ ] 生成履歴のDB保存（Supabase）
 
 ### Phase 3: 決済連携
 - [ ] Stripe サブスクリプション
-- [ ] 料金プラン（無料 / Pro / Business）
-- [ ] APIキーの代理管理（ユーザーのキー不要に）
+- [ ] 料金プラン（無料 / ライト¥980 / プロ¥2,980）
 
 ### Phase 4: プラットフォーム拡張
 - [ ] note API連携（直接投稿）
-- [ ] テンプレート機能（記事スタイルの保存）
-- [ ] チーム機能（編集者の招待）
+- [ ] テンプレート機能
 - [ ] 多言語対応
-
-## 料金プラン（予定）
-
-| プラン | 月額 | 記事数 | 機能 |
-|---|---|---|---|
-| Free | ¥0 | 3記事/月 | 基本機能 |
-| Pro | ¥980 | 30記事/月 | プロフィール蓄積 + テンプレート |
-| Business | ¥2,980 | 無制限 | チーム + API連携 + 優先サポート |
 
 ## 開発
 
@@ -123,7 +139,10 @@ src/
 npm run build
 
 # lint
-npm run lint
+npx eslint src/
+
+# テスト
+npx vitest run
 
 # 開発サーバー
 npm run dev
