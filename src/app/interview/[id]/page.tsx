@@ -15,13 +15,57 @@ import {
   updateProfileFacts,
   incrementUsage,
   canGenerateArticle,
+  getPreferences,
+  getMemory,
+  saveMemory,
   type InterviewSession,
+  type UserMemory,
 } from "@/lib/storage";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
+
+type ExtractedMemory = {
+  topics: string[];
+  keyEpisodes: { summary: string; theme: string }[];
+  writingPatterns: string;
+  avoidTopics: string[];
+};
+
+function mergeMemory(existing: UserMemory, extracted: ExtractedMemory): void {
+  const topicSet = new Set(existing.topics);
+  for (const t of extracted.topics ?? []) {
+    topicSet.add(t);
+  }
+
+  const newEpisodes = (extracted.keyEpisodes ?? []).map((ep) => ({
+    ...ep,
+    date: new Date().toISOString().slice(0, 10),
+  }));
+  const allEpisodes = [...existing.keyEpisodes, ...newEpisodes].slice(-20);
+
+  const patterns = extracted.writingPatterns
+    ? existing.writingPatterns
+      ? `${existing.writingPatterns}; ${extracted.writingPatterns}`
+      : extracted.writingPatterns
+    : existing.writingPatterns;
+
+  const avoidSet = new Set(existing.avoidTopics);
+  for (const t of extracted.avoidTopics ?? []) {
+    avoidSet.add(t);
+  }
+
+  const merged: UserMemory = {
+    topics: Array.from(topicSet),
+    keyEpisodes: allEpisodes,
+    writingPatterns: patterns,
+    avoidTopics: Array.from(avoidSet),
+  };
+
+  saveMemory(merged);
+}
 
 const ESTIMATED_TOTAL_QUESTIONS = 10;
 
@@ -73,10 +117,12 @@ export default function InterviewPage({
         const apiMessages = buildApiMessages(title, []);
         const controller = new AbortController();
         abortRef.current = controller;
+        const prefs = getPreferences();
+        const mem = getMemory();
         const res = await fetch("/api/interview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title, messages: apiMessages }),
+          body: JSON.stringify({ title, messages: apiMessages, preferences: prefs, memory: mem }),
           signal: controller.signal,
         });
         if (!res.ok) {
@@ -189,12 +235,16 @@ export default function InterviewPage({
         const apiMessages = buildApiMessages(session.title, updatedMessages);
         const controller = new AbortController();
         abortRef.current = controller;
+        const prefs = getPreferences();
+        const mem = getMemory();
         const res = await fetch("/api/interview", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: session.title,
             messages: apiMessages,
+            preferences: prefs,
+            memory: mem,
             ...(currentImages.length > 0 ? { images: currentImages } : {}),
           }),
           signal: controller.signal,
@@ -249,13 +299,17 @@ export default function InterviewPage({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const [articleRes, factsRes] = await Promise.all([
+      const prefs = getPreferences();
+      const existingMem = getMemory();
+
+      const [articleRes, factsRes, memoryRes] = await Promise.all([
         fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             title: session.title,
             messages: session.messages,
+            preferences: prefs,
             ...(allImages.length > 0 ? { imageCount: allImages.length } : {}),
           }),
           signal: controller.signal,
@@ -264,6 +318,12 @@ export default function InterviewPage({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: session.messages }),
+          signal: controller.signal,
+        }),
+        fetch("/api/extract-memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: session.messages, existingMemory: existingMem }),
           signal: controller.signal,
         }),
       ]);
@@ -287,6 +347,14 @@ export default function InterviewPage({
         }
       } catch {
         // 事実抽出の失敗は無視
+      }
+
+      // 記憶抽出・マージ（失敗しても記事生成は続行）
+      try {
+        const memResult = await memoryRes.json();
+        mergeMemory(existingMem, memResult as ExtractedMemory);
+      } catch {
+        // 記憶抽出の失敗は無視
       }
 
       // セッション完了
@@ -337,7 +405,9 @@ export default function InterviewPage({
       const controller = new AbortController();
       abortRef.current = controller;
 
-      const [multiRes, factsRes] = await Promise.all([
+      const existingMem = getMemory();
+
+      const [multiRes, factsRes, memoryRes] = await Promise.all([
         fetch("/api/generate-multi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -352,6 +422,12 @@ export default function InterviewPage({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ messages: session.messages }),
+          signal: controller.signal,
+        }),
+        fetch("/api/extract-memory", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: session.messages, existingMemory: existingMem }),
           signal: controller.signal,
         }),
       ]);
@@ -387,6 +463,14 @@ export default function InterviewPage({
         }
       } catch {
         // 事実抽出の失敗は無視
+      }
+
+      // 記憶抽出・マージ（失敗しても記事生成は続行）
+      try {
+        const memResult = await memoryRes.json();
+        mergeMemory(existingMem, memResult as ExtractedMemory);
+      } catch {
+        // 記憶抽出の失敗は無視
       }
 
       // セッション完了

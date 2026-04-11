@@ -29,10 +29,15 @@ export async function POST(request: Request) {
         ? Math.min(b.imageCount, 5)
         : undefined;
 
+    const preferences = (
+      typeof b.preferences === "object" && b.preferences !== null
+    ) ? b.preferences as import("@/lib/storage").UserPreferences : undefined;
+
     const result = await generateArticle(
       b.title as string,
       messagesResult.data,
-      imageCount
+      imageCount,
+      preferences
     );
     return Response.json(result);
   } catch (error) {

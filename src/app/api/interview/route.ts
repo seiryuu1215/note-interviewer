@@ -30,10 +30,21 @@ export async function POST(request: Request) {
       return Response.json({ error: imagesResult.error }, { status: 400 });
     }
 
+    // ユーザー設定と記憶を取得（オプショナル）
+    const preferences = (
+      typeof b.preferences === "object" && b.preferences !== null
+    ) ? b.preferences as import("@/lib/storage").UserPreferences : undefined;
+
+    const memory = (
+      typeof b.memory === "object" && b.memory !== null
+    ) ? b.memory as import("@/lib/storage").UserMemory : undefined;
+
     const result = await askInterviewer(
       b.title as string,
       messagesResult.data,
-      imagesResult.data.length > 0 ? imagesResult.data : undefined
+      imagesResult.data.length > 0 ? imagesResult.data : undefined,
+      preferences,
+      memory
     );
     return Response.json(result);
   } catch (error) {

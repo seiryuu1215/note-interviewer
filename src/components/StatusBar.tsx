@@ -15,6 +15,7 @@ const tabs: Tab[] = [
   { label: "インタビュー", path: "/interview", matchPrefix: true },
   { label: "記事", path: "/article", matchPrefix: true },
   { label: "添削", path: "/review" },
+  { label: "設定", path: "/settings" },
 ];
 
 export default function StatusBar() {

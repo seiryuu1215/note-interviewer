@@ -1,3 +1,39 @@
+// ユーザー設定
+export type UserPreferences = {
+  interviewTone: "casual" | "polite" | "provocative";
+  interviewDepth: "light" | "normal" | "deep";
+  firstPerson: string;
+  articleStyle: "emotional" | "logical" | "humorous";
+  ngWords: string[];
+};
+
+// AI記憶
+export type UserMemory = {
+  topics: string[];
+  keyEpisodes: {
+    summary: string;
+    theme: string;
+    date: string;
+  }[];
+  writingPatterns: string;
+  avoidTopics: string[];
+};
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  interviewTone: "casual",
+  interviewDepth: "normal",
+  firstPerson: "僕",
+  articleStyle: "emotional",
+  ngWords: [],
+};
+
+export const DEFAULT_MEMORY: UserMemory = {
+  topics: [],
+  keyEpisodes: [],
+  writingPatterns: "",
+  avoidTopics: [],
+};
+
 // ユーザープロフィール（インタビューから蓄積）
 export type UserProfile = {
   name: string;
@@ -6,6 +42,11 @@ export type UserProfile = {
   noteUsername?: string;
   noteAnalysis?: string;
   noteArticleCount?: number;
+  preferences?: UserPreferences;
+  memory?: UserMemory;
+  appliedCoupons?: string[];
+  bonusArticles?: number;
+  isAdmin?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -180,11 +221,96 @@ export function getUsage(): UsageData {
 }
 
 export function canGenerateArticle(): boolean {
-  return getUsage().monthlyArticles < FREE_LIMIT;
+  const profile = getProfile();
+  if (profile?.isAdmin) return true;
+  const usage = getUsage();
+  const limit = FREE_LIMIT + (profile?.bonusArticles ?? 0);
+  return usage.monthlyArticles < limit;
 }
 
 export function canReview(): boolean {
+  const profile = getProfile();
+  if (profile?.isAdmin) return true;
   return getUsage().monthlyReviews < FREE_REVIEW_LIMIT;
+}
+
+// --- ユーザー設定 ---
+export function savePreferences(preferences: UserPreferences): void {
+  const profile = getProfile();
+  if (!profile) return;
+  profile.preferences = preferences;
+  profile.updatedAt = new Date().toISOString();
+  saveProfile(profile);
+}
+
+export function getPreferences(): UserPreferences {
+  return getProfile()?.preferences ?? { ...DEFAULT_PREFERENCES };
+}
+
+// --- AI記憶 ---
+export function saveMemory(memory: UserMemory): void {
+  const profile = getProfile();
+  if (!profile) return;
+  profile.memory = memory;
+  profile.updatedAt = new Date().toISOString();
+  saveProfile(profile);
+}
+
+export function getMemory(): UserMemory {
+  return getProfile()?.memory ?? { ...DEFAULT_MEMORY };
+}
+
+// --- クーポン ---
+const VALID_COUPONS: Record<string, number> = {
+  "SEIRYUU2026": 10,
+  "FRIEND5": 5,
+  "BETA3": 3,
+};
+
+export function applyCoupon(code: string): { success: boolean; message: string; addedArticles: number } {
+  const profile = getProfile();
+  if (!profile) {
+    return { success: false, message: "プロフィールが設定されていません", addedArticles: 0 };
+  }
+
+  const upperCode = code.toUpperCase().trim();
+  const bonus = VALID_COUPONS[upperCode];
+
+  if (bonus === undefined) {
+    return { success: false, message: "無効なクーポンコードです", addedArticles: 0 };
+  }
+
+  const applied = profile.appliedCoupons ?? [];
+  if (applied.includes(upperCode)) {
+    return { success: false, message: "このクーポンは既に使用済みです", addedArticles: 0 };
+  }
+
+  profile.appliedCoupons = [...applied, upperCode];
+  profile.bonusArticles = (profile.bonusArticles ?? 0) + bonus;
+  profile.updatedAt = new Date().toISOString();
+  saveProfile(profile);
+
+  return { success: true, message: `${bonus}記事分の無料枠が追加されました！`, addedArticles: bonus };
+}
+
+// --- 管理者 ---
+const ADMIN_PASSWORD = "seiryuu-admin-2026";
+
+export function setAdmin(password: string): boolean {
+  if (password === ADMIN_PASSWORD) {
+    const profile = getProfile();
+    if (profile) {
+      profile.isAdmin = true;
+      profile.updatedAt = new Date().toISOString();
+      saveProfile(profile);
+    }
+    return true;
+  }
+  return false;
+}
+
+export function isAdmin(): boolean {
+  return getProfile()?.isAdmin === true;
 }
 
 export function incrementUsage(type: "interview" | "article" | "review"): void {

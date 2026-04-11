@@ -7,10 +7,14 @@ import {
   MULTI_ARTICLE_SYSTEM_PROMPT,
   THEME_ANALYZER_SYSTEM_PROMPT,
   NOTE_PROFILE_ANALYZER_PROMPT,
+  MEMORY_EXTRACTOR_SYSTEM_PROMPT,
   REVIEW_SYSTEM_PROMPT_GENTLE,
   REVIEW_SYSTEM_PROMPT_NORMAL,
   REVIEW_SYSTEM_PROMPT_HARSH,
+  buildInterviewerPrompt,
+  buildArticleGeneratorPrompt,
 } from "./prompts";
+import type { UserPreferences, UserMemory } from "./storage";
 
 export const anthropicClient = new Anthropic();
 
@@ -113,7 +117,9 @@ function parseJson<T>(text: string): T | null {
 export async function askInterviewer(
   title: string,
   messages: Message[],
-  images?: string[]
+  images?: string[],
+  preferences?: UserPreferences,
+  memory?: UserMemory
 ): Promise<{ message: string; shouldEnd: boolean }> {
   // メッセージをAPI送信用に変換（最後のuserメッセージに画像を添付）
   const apiMessages: ApiMessage[] = messages.map((m, i) => {
@@ -137,11 +143,15 @@ export async function askInterviewer(
     return { role: m.role, content: m.content };
   });
 
+  const systemPrompt = (preferences || memory)
+    ? buildInterviewerPrompt(preferences, memory)
+    : INTERVIEWER_SYSTEM_PROMPT;
+
   const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 1024,
     temperature: 0.5,
-    system: INTERVIEWER_SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: apiMessages,
   });
 
@@ -157,7 +167,8 @@ export async function askInterviewer(
 export async function generateArticle(
   title: string,
   messages: Message[],
-  imageCount?: number
+  imageCount?: number,
+  preferences?: UserPreferences
 ): Promise<{ title: string; content: string }> {
   const interviewLog = messages
     .map(
@@ -171,11 +182,15 @@ export async function generateArticle(
       ? `\n\nユーザーが画像を${imageCount}枚提供しています。記事の適切な位置に${Array.from({ length: imageCount }, (_, i) => `![写真${i + 1}](image-${i + 1})`).join("、")}のようなプレースホルダーを挿入してください。`
       : "";
 
+  const systemPrompt = preferences
+    ? buildArticleGeneratorPrompt(preferences)
+    : ARTICLE_GENERATOR_SYSTEM_PROMPT;
+
   const response = await anthropicClient.messages.create({
     model: MODEL,
     max_tokens: 4096,
     temperature: 0.7,
-    system: ARTICLE_GENERATOR_SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [
       {
         role: "user",
@@ -219,6 +234,55 @@ export async function extractFacts(
 
   const parsed = parseJson<{ facts: string[] }>(text);
   return parsed ?? { facts: [] };
+}
+
+// 記憶抽出: インタビューから記憶情報を抽出
+export async function extractMemory(
+  messages: Message[],
+  existingMemory?: UserMemory
+): Promise<{ topics: string[]; keyEpisodes: { summary: string; theme: string }[]; writingPatterns: string; avoidTopics: string[] }> {
+  const interviewLog = messages
+    .map(
+      (m) =>
+        `${m.role === "user" ? "回答者" : "インタビュアー"}: ${m.content}`
+    )
+    .join("\n\n");
+
+  let userContent = `以下のインタビュー記録から記憶情報を抽出してください：\n\n${interviewLog}`;
+
+  if (existingMemory) {
+    userContent += `\n\n## 既に記録済みの情報\nテーマ: ${existingMemory.topics.join(", ")}\nエピソード数: ${existingMemory.keyEpisodes.length}件\n文体パターン: ${existingMemory.writingPatterns}`;
+  }
+
+  const response = await anthropicClient.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    temperature: 0.3,
+    system: MEMORY_EXTRACTOR_SYSTEM_PROMPT,
+    messages: [
+      {
+        role: "user",
+        content: userContent,
+      },
+    ],
+  });
+
+  const text =
+    response.content[0].type === "text" ? response.content[0].text : "";
+
+  const parsed = parseJson<{
+    topics: string[];
+    keyEpisodes: { summary: string; theme: string }[];
+    writingPatterns: string;
+    avoidTopics: string[];
+  }>(text);
+
+  return {
+    topics: parsed?.topics ?? [],
+    keyEpisodes: parsed?.keyEpisodes ?? [],
+    writingPatterns: parsed?.writingPatterns ?? "",
+    avoidTopics: parsed?.avoidTopics ?? [],
+  };
 }
 
 // テーマ分析: ふわっとした入力からタイトルと最初の質問を生成

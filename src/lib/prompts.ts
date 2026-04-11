@@ -1,5 +1,8 @@
 // AI各機能のシステムプロンプト定義
 
+import type { UserPreferences, UserMemory } from "./storage";
+
+
 export const INTERVIEWER_SYSTEM_PROMPT = `あなたはプロのnoteライター兼インタビュアーです。
 
 ## あなたの役割
@@ -161,6 +164,96 @@ export const REVIEW_SYSTEM_PROMPT_HARSH = `あなたはnoteで累計1000万PVを
 
 ## 回答フォーマット
 JSON形式: {"score": 45, "honestReaction": "正直な感想", "criticalIssues": [{"issue": "問題", "why": "なぜダメか", "fix": "修正方法"}], "wastedPotential": [{"point": "もったいない点", "suggestion": "こうすれば活きる"}], "saving": "唯一の救い", "rewrite": "リライト例", "prediction": "このままだと...", "summary": "辛口総評"}`;
+
+// 記憶抽出プロンプト
+export const MEMORY_EXTRACTOR_SYSTEM_PROMPT = `インタビューの全会話から、以下を抽出してください。
+
+## 抽出項目
+1. topics: このインタビューのメインテーマ（1〜3個）
+2. keyEpisodes: 重要なエピソード（各30文字以内の要約、テーマ付き）
+3. writingPatterns: ユーザーの話し方の特徴（口癖、表現の傾向など）
+4. avoidTopics: ユーザーが話したくなさそうだった話題
+
+## ルール
+- 既に記録済みのテーマやエピソードと重複しないものだけ抽出
+- writingPatternsは既存パターンに追記する形
+- 具体的に、短く
+
+## 回答フォーマット
+JSON形式:
+{"topics": ["テーマ1"], "keyEpisodes": [{"summary": "要約", "theme": "テーマ"}], "writingPatterns": "特徴", "avoidTopics": ["話題"]}`;
+
+// インタビュアープロンプトの動的生成
+export function buildInterviewerPrompt(
+  preferences?: UserPreferences,
+  memory?: UserMemory
+): string {
+  let prompt = INTERVIEWER_SYSTEM_PROMPT;
+
+  if (preferences) {
+    const toneMap: Record<UserPreferences["interviewTone"], string> = {
+      casual: "フランクでカジュアルなトーンで質問する",
+      polite: "丁寧で礼儀正しいトーンで質問する",
+      provocative: "挑発的で考えさせるトーンで質問する（ただし失礼にはならない）",
+    };
+    const depthMap: Record<UserPreferences["interviewDepth"], string> = {
+      light: "3〜5問程度でさらっと聞く",
+      normal: "5〜10問で適度に深掘りする",
+      deep: "10〜15問でとことん深掘りする",
+    };
+
+    prompt += `\n\n## ユーザーの好み\n`;
+    prompt += `- トーン: ${toneMap[preferences.interviewTone]}\n`;
+    prompt += `- 深さ: ${depthMap[preferences.interviewDepth]}\n`;
+    if (preferences.ngWords.length > 0) {
+      prompt += `- 避けるべきワード: ${preferences.ngWords.join(", ")}\n`;
+    }
+  }
+
+  if (memory) {
+    if (memory.topics.length > 0) {
+      prompt += `\n## 過去に話したテーマ（重複質問を避ける）\n${memory.topics.join(", ")}\n`;
+    }
+    if (memory.keyEpisodes.length > 0) {
+      prompt += `\n## 既知のエピソード\n`;
+      memory.keyEpisodes.slice(-10).forEach((ep) => {
+        prompt += `- ${ep.theme}: ${ep.summary}\n`;
+      });
+    }
+    if (memory.writingPatterns) {
+      prompt += `\n## ユーザーの話し方の特徴\n${memory.writingPatterns}\n`;
+    }
+    if (memory.avoidTopics.length > 0) {
+      prompt += `\n## 避けるべき話題\n${memory.avoidTopics.join(", ")}\n`;
+    }
+  }
+
+  return prompt;
+}
+
+// 記事生成プロンプトの動的生成
+export function buildArticleGeneratorPrompt(
+  preferences?: UserPreferences
+): string {
+  let prompt = ARTICLE_GENERATOR_SYSTEM_PROMPT;
+
+  if (preferences) {
+    prompt = prompt.replace('一人称「僕」', `一人称「${preferences.firstPerson}」`);
+
+    const styleMap: Record<UserPreferences["articleStyle"], string> = {
+      emotional: "感情に訴える、共感を呼ぶ文体。読者が「わかる」と思える表現を多用",
+      logical: "論理的で明快な文体。根拠→主張→結論の構成。データや事例を重視",
+      humorous: "ユーモアを交えた軽快な文体。クスッと笑える表現や自虐ネタも適度に",
+    };
+    prompt += `\n\n## 文体の追加指示\n${styleMap[preferences.articleStyle]}`;
+
+    if (preferences.ngWords.length > 0) {
+      prompt += `\n\n## 使用禁止ワード\n以下の表現は絶対に使わないでください: ${preferences.ngWords.join(", ")}`;
+    }
+  }
+
+  return prompt;
+}
 
 export const THEME_ANALYZER_SYSTEM_PROMPT = `あなたはプロのnoteライター兼インタビュアーです。
 ユーザーが書きたいテーマをふわっと伝えてきます。
