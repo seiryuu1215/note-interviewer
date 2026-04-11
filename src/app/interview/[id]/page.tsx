@@ -18,6 +18,7 @@ import {
   getPreferences,
   getMemory,
   saveMemory,
+  isAdmin,
   type InterviewSession,
   type UserMemory,
 } from "@/lib/storage";
@@ -571,12 +572,14 @@ export default function InterviewPage({
             >
               1本の記事を生成
             </button>
-            <button
-              onClick={handleGenerateMulti}
-              className="flex-1 bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors min-h-[44px]"
-            >
-              複数記事に分割（3〜5本）
-            </button>
+            {isAdmin() && (
+              <button
+                onClick={handleGenerateMulti}
+                className="flex-1 bg-[var(--accent)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--accent-hover)] transition-colors min-h-[44px]"
+              >
+                複数記事に分割（3〜5本）
+              </button>
+            )}
           </div>
         </div>
       )}
